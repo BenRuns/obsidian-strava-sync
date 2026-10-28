@@ -63,7 +63,7 @@ export class ActivitiesCSVImporter {
       );
     }
 
-    return records.map((record: any): Activity => {
+    return records.map((record): Activity => {
       const startDateTimestamp = Date.parse(
         `${record["Activity Date"]} ${TIME_ZONE}`,
       );

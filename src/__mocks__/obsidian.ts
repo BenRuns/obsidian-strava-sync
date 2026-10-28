@@ -1,8 +1,8 @@
 export class Plugin {
-  app: any;
-  manifest: any;
+  app: unknown;
+  manifest: unknown;
 
-  constructor(app: any, manifest: any) {
+  constructor(app: unknown, manifest: unknown) {
     this.app = app;
     this.manifest = manifest;
   }

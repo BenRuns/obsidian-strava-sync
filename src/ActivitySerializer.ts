@@ -6,7 +6,9 @@ import type { Settings } from "./Settings";
 // On Unix-like systems / is reserved and <>:"/\|?* as well as non-printable characters \u0000-\u001F on Windows
 // credit: https://github.com/sindresorhus/filename-reserved-regex
 const REPLACEMENT_CHAR = "-";
+// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are intentionally matched
 const ILLEGAL_CHAR_REGEX_FILE = /[<>:"/\\|?*\u0000-\u001F]/g;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are intentionally matched
 const ILLEGAL_CHAR_REGEX_FOLDER = /[<>:"\\|?*\u0000-\u001F]/g;
 
 export class ActivitySerializer {
