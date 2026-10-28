@@ -106,7 +106,7 @@ export class StravaApi {
       }),
     });
 
-    return response.json;
+    return response.json as StravaTokenResponse;
   }
 
   private updateTokens(response: StravaTokenResponse) {
@@ -129,7 +129,7 @@ export class StravaApi {
       },
     });
 
-    return response.json;
+    return response.json as StravaActivity[];
   }
 
   async getActivity(id: number): Promise<StravaActivity> {
@@ -141,6 +141,6 @@ export class StravaApi {
       },
     });
 
-    return response.json;
+    return response.json as StravaActivity;
   }
 }

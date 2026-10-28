@@ -8,7 +8,7 @@ export class FileSelector {
   selectContents(): Promise<string> {
     return new Promise((resolve, reject) => {
       // Create an input element for file selection
-      const fileInput = document.createElement("input");
+      const fileInput = createEl("input");
       fileInput.type = "file";
       fileInput.accept = this.type;
 
@@ -21,10 +21,10 @@ export class FileSelector {
             const fileContents = await file.text();
             resolve(fileContents);
           } catch (error) {
-            reject(error);
+            reject(error instanceof Error ? error : new Error(String(error)));
           }
         } else {
-          reject("No file selected");
+          reject(new Error("No file selected"));
         }
       };
 
