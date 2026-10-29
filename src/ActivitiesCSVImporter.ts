@@ -43,9 +43,11 @@ export class ActivitiesCSVImporter {
       records = parse(this.fileContents, {
         columns: true,
         skip_empty_lines: true,
-      });
+      }) as Record<string, string>[];
     } catch (error) {
-      throw new CSVImportError(`Failed to parse CSV: ${error.message}`);
+      throw new CSVImportError(
+        `Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     if (records.length === 0) {
@@ -63,7 +65,7 @@ export class ActivitiesCSVImporter {
       );
     }
 
-    return records.map((record: any): Activity => {
+    return records.map((record): Activity => {
       const startDateTimestamp = Date.parse(
         `${record["Activity Date"]} ${TIME_ZONE}`,
       );

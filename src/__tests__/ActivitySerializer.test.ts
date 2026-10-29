@@ -16,7 +16,7 @@ describe("ActivitySerializer", () => {
   beforeEach(() => {
     app = new App();
     vault = new Vault();
-    (app as any).vault = vault;
+    app.vault = vault;
 
     settings = {
       authentication: {
