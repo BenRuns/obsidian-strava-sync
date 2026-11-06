@@ -6,8 +6,10 @@ import type { Settings } from "./Settings";
 // On Unix-like systems / is reserved and <>:"/\|?* as well as non-printable characters \u0000-\u001F on Windows
 // credit: https://github.com/sindresorhus/filename-reserved-regex
 const REPLACEMENT_CHAR = "-";
-const ILLEGAL_CHAR_REGEX_FILE = /[<>:"/\\|?*\u0000-\u001F]/g;
-const ILLEGAL_CHAR_REGEX_FOLDER = /[<>:"\\|?*\u0000-\u001F]/g;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are intentionally matched
+const ILLEGAL_CHAR_REGEX_FILE = /[<>:"/\\|?*\u0000-\u001F]/g; // eslint-disable-line no-control-regex -- control characters are intentionally matched
+// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are intentionally matched
+const ILLEGAL_CHAR_REGEX_FOLDER = /[<>:"\\|?*\u0000-\u001F]/g; // eslint-disable-line no-control-regex -- control characters are intentionally matched
 
 export class ActivitySerializer {
   app: App;
@@ -49,7 +51,7 @@ export class ActivitySerializer {
     try {
       await this.app.vault.create(filePath, fileContent);
     } catch (error) {
-      if (error.toString().includes("File already exists")) {
+      if (String(error).includes("File already exists")) {
         return false;
       }
 

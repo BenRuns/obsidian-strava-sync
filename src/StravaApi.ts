@@ -1,6 +1,31 @@
 import { requestUrl } from "obsidian";
 import type { AuthenticationSettings } from "./Settings";
 
+interface StravaTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
+}
+
+export interface StravaActivity {
+  id: number;
+  start_date: string;
+  name: string;
+  sport_type: string;
+  description?: string;
+  private_note?: string;
+  elapsed_time: number;
+  moving_time: number;
+  distance: number;
+  max_heartrate?: number;
+  max_speed?: number;
+  average_speed?: number;
+  total_elevation_gain?: number;
+  elev_low?: number;
+  elev_high?: number;
+  calories?: number;
+}
+
 export class StravaApi {
   private readonly SCOPES = "read,activity:read_all";
   private readonly REDIRECT_URI = "obsidian://strava-sync";
@@ -47,7 +72,7 @@ export class StravaApi {
       );
     }
 
-    if (Date.now() / 1000 > this.settings.stravaTokenExpiresAt!) {
+    if (Date.now() / 1000 > (this.settings.stravaTokenExpiresAt ?? 0)) {
       await this.refreshToken();
     }
   }
@@ -65,7 +90,9 @@ export class StravaApi {
     );
   }
 
-  private async tokenRequest(params: Record<string, string>): Promise<any> {
+  private async tokenRequest(
+    params: Record<string, string>,
+  ): Promise<StravaTokenResponse> {
     const response = await requestUrl({
       url: "https://www.strava.com/oauth/token",
       method: "POST",
@@ -79,20 +106,22 @@ export class StravaApi {
       }),
     });
 
-    return response.json;
+    return response.json as StravaTokenResponse;
   }
 
-  private updateTokens(response: any) {
+  private updateTokens(response: StravaTokenResponse) {
     this.settings.stravaAccessToken = response.access_token;
     this.settings.stravaRefreshToken = response.refresh_token;
     this.settings.stravaTokenExpiresAt = response.expires_at;
   }
 
   async listActivities(params: { per_page: number; after?: number }): Promise<
-    any[]
+    StravaActivity[]
   > {
     await this.refreshTokenIfExpired();
-    const queryParams = new URLSearchParams(params as any).toString();
+    const queryParams = new URLSearchParams(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    ).toString();
     const response = await requestUrl({
       url: `https://www.strava.com/api/v3/athlete/activities?${queryParams}`,
       headers: {
@@ -100,10 +129,10 @@ export class StravaApi {
       },
     });
 
-    return response.json;
+    return response.json as StravaActivity[];
   }
 
-  async getActivity(id: number): Promise<any> {
+  async getActivity(id: number): Promise<StravaActivity> {
     await this.refreshTokenIfExpired();
     const response = await requestUrl({
       url: `https://www.strava.com/api/v3/activities/${id}`,
@@ -112,6 +141,6 @@ export class StravaApi {
       },
     });
 
-    return response.json;
+    return response.json as StravaActivity;
   }
 }

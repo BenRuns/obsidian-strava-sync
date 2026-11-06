@@ -1,5 +1,5 @@
 import type { Activity } from "./Activity";
-import type { StravaApi } from "./StravaApi";
+import type { StravaActivity, StravaApi } from "./StravaApi";
 
 // The default “non-upload” rate limit allows 100 requests every 15 minutes, with up to 1,000 requests per day.
 export class ActivityImporter {
@@ -28,7 +28,7 @@ export class ActivityImporter {
       const activities = await this.stravaApi.listActivities(params);
 
       const detailedActivities = await Promise.all(
-        activities.map(async (activity: any) => {
+        activities.map(async (activity) => {
           const detailedActivity = await this.stravaApi.getActivity(
             activity.id,
           );
@@ -43,7 +43,9 @@ export class ActivityImporter {
     }
   }
 
-  private mapStravaActivityToActivity(stravaActivity: any): Activity {
+  private mapStravaActivityToActivity(
+    stravaActivity: StravaActivity,
+  ): Activity {
     return {
       id: stravaActivity.id,
       start_date: new Date(stravaActivity.start_date),

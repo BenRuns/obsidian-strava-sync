@@ -33,13 +33,9 @@ export default class StravaSync extends Plugin {
       `<svg fill="currentColor" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>`,
     );
 
-    this.addRibbonIcon(
-      ICON_ID,
-      "Import new activities from Strava",
-      (evt: MouseEvent) => {
-        this.importNewActivities();
-      },
-    );
+    this.addRibbonIcon(ICON_ID, "Import new activities from Strava", () => {
+      void this.importNewActivities();
+    });
 
     this.registerObsidianProtocolHandler("strava-sync", async (args) => {
       await this.stravaApi.exchangeCodeForToken(args.code);
@@ -52,14 +48,14 @@ export default class StravaSync extends Plugin {
       );
 
       // Refresh the settings tab to update the authentication status
-      this.settingsTab.display();
+      this.settingsTab.refresh();
     });
 
     this.addCommand({
       id: "import-new",
       name: "Import new activities from Strava",
       callback: () => {
-        this.importNewActivities();
+        void this.importNewActivities();
       },
     });
 
@@ -67,7 +63,7 @@ export default class StravaSync extends Plugin {
       id: "import-csv",
       name: "Import Strava activities from bulk export CSV",
       callback: () => {
-        this.importActivitiesFromCSV();
+        void this.importActivitiesFromCSV();
       },
     });
 
@@ -139,7 +135,11 @@ export default class StravaSync extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign(
+      {},
+      DEFAULT_SETTINGS,
+      (await this.loadData()) as Partial<Settings>,
+    );
   }
 
   async saveSettings() {

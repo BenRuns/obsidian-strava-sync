@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ActivityImporter } from "../ActivityImporter";
+import type { AuthenticationSettings } from "../Settings";
 import { StravaApi } from "../StravaApi";
 
 jest.mock("../StravaApi");
@@ -10,7 +11,9 @@ describe("ActivityImporter", () => {
   let mockStravaApi: jest.Mocked<StravaApi>;
 
   beforeEach(() => {
-    mockStravaApi = new StravaApi({} as any) as jest.Mocked<StravaApi>;
+    mockStravaApi = new StravaApi(
+      {} as AuthenticationSettings,
+    ) as jest.Mocked<StravaApi>;
     mockStravaApi.refreshTokenIfExpired = jest
       .fn()
       .mockResolvedValue(undefined);
