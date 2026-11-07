@@ -1,5 +1,9 @@
 import type { Activity } from "../Activity";
-import { ActivityRenderer, DEFAULT_TEMPLATE } from "../ActivityRenderer";
+import {
+  ActivityRenderer,
+  DEFAULT_TEMPLATE,
+  LEGACY_DEFAULT_TEMPLATE,
+} from "../ActivityRenderer";
 
 jest.mock("obsidian", () => ({
   stringifyYaml: jest.fn().mockImplementation((obj) => {
@@ -39,7 +43,64 @@ describe("ActivityRenderer", () => {
       elev_low: 50,
       elev_high: 150,
       calories: 500,
+      url: "https://www.strava.com/activities/123456789",
+      source: "Strava",
     };
+  });
+
+  test("renders Strava activities the same as the old default template", () => {
+    const render = (template: string) =>
+      new ActivityRenderer(template, "yyyy-MM-dd HH:mm:ss").render(activity);
+
+    expect(render(DEFAULT_TEMPLATE)).toBe(render(LEGACY_DEFAULT_TEMPLATE));
+
+    activity.description = "";
+    activity.private_note = "";
+    expect(render(DEFAULT_TEMPLATE)).toBe(render(LEGACY_DEFAULT_TEMPLATE));
+  });
+
+  test("renders a Garmin activity with its link and tag", () => {
+    activity.url = "https://connect.garmin.com/modern/activity/42";
+    activity.source = "Garmin";
+    activity.private_note = "";
+
+    const result = new ActivityRenderer(
+      DEFAULT_TEMPLATE,
+      "yyyy-MM-dd HH:mm:ss",
+    ).render(activity);
+
+    expect(result).toBe(`# Morning Run
+
+[https://connect.garmin.com/modern/activity/42](https://connect.garmin.com/modern/activity/42)
+
+Description: Great run in the park
+
+#Garmin
+`);
+  });
+
+  test("leaves out the link for activities without one", () => {
+    activity.url = undefined;
+    activity.source = "FIT";
+    activity.description = "";
+    activity.private_note = "";
+
+    const result = new ActivityRenderer(
+      DEFAULT_TEMPLATE,
+      "yyyy-MM-dd HH:mm:ss",
+    ).render(activity);
+
+    expect(result).toBe("# Morning Run\n\n#FIT\n");
+  });
+
+  test("tags activities without a source as Strava", () => {
+    activity.source = undefined;
+
+    expect(
+      new ActivityRenderer("#{{source}}", "yyyy-MM-dd HH:mm:ss").render(
+        activity,
+      ),
+    ).toBe("#Strava");
   });
 
   test("renders activity with default template", () => {

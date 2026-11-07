@@ -98,6 +98,13 @@ class MockComponent {
   setTooltip() {
     return this;
   }
+
+  options: Record<string, string> = {};
+
+  addOption(value: string, label: string) {
+    this.options[value] = label;
+    return this;
+  }
 }
 
 export class Setting {
@@ -147,6 +154,10 @@ export class Setting {
   }
 
   addExtraButton(callback: (component: MockComponent) => unknown) {
+    return this.addComponent(callback);
+  }
+
+  addDropdown(callback: (component: MockComponent) => unknown) {
     return this.addComponent(callback);
   }
 }

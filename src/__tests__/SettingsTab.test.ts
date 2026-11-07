@@ -64,6 +64,8 @@ describe("SettingsTab", () => {
       settings,
       saveSettings: jest.fn().mockResolvedValue(undefined),
       importActivitiesFromCSV: jest.fn().mockResolvedValue(undefined),
+      getGarminApiKey: jest.fn().mockReturnValue(null),
+      setGarminApiKey: jest.fn().mockResolvedValue(undefined),
       stravaApi: {
         buildAuthorizeUrl: () => "https://www.strava.com/oauth/authorize",
       },
@@ -106,8 +108,10 @@ describe("SettingsTab", () => {
     }));
 
     expect(groups).toEqual([
+      { heading: "Activity source", items: ["Import new activities from"] },
+      { heading: "Garmin", items: ["Garmin API key"] },
       {
-        heading: "Authentication",
+        heading: "Strava",
         items: [
           "Strava client ID",
           "Strava client secret",
@@ -140,17 +144,24 @@ describe("SettingsTab", () => {
   it("renders the same rows on older Obsidian versions", () => {
     settingsTab.display();
 
-    const expected = definitions().flatMap((group) => [
-      ...("heading" in group && group.heading
-        ? [{ name: group.heading, heading: true }]
-        : []),
-      ...("items" in group && group.items
-        ? group.items.map((item) => ({
-            name: "name" in item ? item.name : undefined,
-            heading: false,
-          }))
-        : []),
-    ]);
+    const visible = (group: { visible?: boolean | (() => boolean) }) =>
+      typeof group.visible === "function"
+        ? group.visible()
+        : group.visible !== false;
+
+    const expected = definitions()
+      .filter((group) => !("type" in group) || visible(group))
+      .flatMap((group) => [
+        ...("heading" in group && group.heading
+          ? [{ name: group.heading, heading: true }]
+          : []),
+        ...("items" in group && group.items
+          ? group.items.map((item) => ({
+              name: "name" in item ? item.name : undefined,
+              heading: false,
+            }))
+          : []),
+      ]);
 
     expect(
       renderedSettings().map(({ name, heading }) => ({ name, heading })),
@@ -158,9 +169,8 @@ describe("SettingsTab", () => {
   });
 
   it("includes link text in descriptions", () => {
-    const [authentication] = definitions();
-    const clientId =
-      "items" in authentication ? authentication.items?.[0] : undefined;
+    const strava = definitions()[2];
+    const clientId = "items" in strava ? strava.items?.[0] : undefined;
 
     expect(
       descText(clientId && "desc" in clientId ? clientId.desc : undefined),
@@ -316,6 +326,69 @@ describe("SettingsTab", () => {
     button.onClickHandler?.();
 
     expect(plugin.importActivitiesFromFIT).toHaveBeenCalled();
+  });
+
+  describe("activity source", () => {
+    const groupVisible = (heading: string) => {
+      const group = definitions().find(
+        (item) => "heading" in item && item.heading === heading,
+      );
+      return group && "visible" in group && typeof group.visible === "function"
+        ? group.visible()
+        : undefined;
+    };
+
+    it("shows the Strava settings for Strava", () => {
+      expect(groupVisible("Strava")).toBe(true);
+      expect(groupVisible("Garmin")).toBe(false);
+    });
+
+    it("shows the Garmin settings for Garmin", () => {
+      settings.sync.source = "garmin";
+
+      expect(groupVisible("Strava")).toBe(false);
+      expect(groupVisible("Garmin")).toBe(true);
+    });
+
+    it("saves a new source and refreshes the tab", () => {
+      const [dropdown] = renderRow("Import new activities from").components;
+
+      expect(dropdown.value).toBe("strava");
+
+      dropdown.onChangeHandler?.("garmin");
+
+      expect(settings.sync.source).toBe("garmin");
+      expect(plugin.saveSettings).toHaveBeenCalled();
+      expect(settingsTab.update).toHaveBeenCalled();
+    });
+
+    it("mentions that Strava needs a subscription", () => {
+      const [dropdown] = renderRow("Import new activities from")
+        .components as unknown as { options: Record<string, string> }[];
+
+      expect(dropdown.options).toEqual({
+        strava: "Strava (needs a Strava subscription)",
+        garmin: "Garmin",
+      });
+    });
+  });
+
+  describe("Garmin API key", () => {
+    it("shows the stored key", () => {
+      (plugin.getGarminApiKey as jest.Mock).mockReturnValue("secret-key");
+
+      expect(renderRow("Garmin API key").components[0].value).toBe(
+        "secret-key",
+      );
+    });
+
+    it("stores a new key", () => {
+      const [text] = renderRow("Garmin API key").components;
+
+      text.onChangeHandler?.("new-key");
+
+      expect(plugin.setGarminApiKey).toHaveBeenCalledWith("new-key");
+    });
   });
 
   it("shows the Powered by Strava logo", () => {

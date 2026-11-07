@@ -1,6 +1,8 @@
 import type { ActivityMesg, SessionMesg } from "@garmin/fitsdk";
+import { zipSync } from "fflate";
 import {
   FitImporter,
+  extractFitFiles,
   parseFitFile,
   sessionToActivity,
   utcOffsetSeconds,
@@ -28,6 +30,7 @@ describe("FitImporter", () => {
       elev_low: 50,
       elev_high: 170,
       calories: 700,
+      source: "FIT",
     });
   });
 
@@ -132,6 +135,75 @@ describe("FitImporter", () => {
         subSport: "mountain",
       } as SessionMesg).name,
     ).toBe("Morning Mountain Bike Ride");
+  });
+
+  describe("zip files", () => {
+    const zip = (files: Record<string, ArrayBuffer | string>) => {
+      const bytes = zipSync(
+        Object.fromEntries(
+          Object.entries(files).map(([name, content]) => [
+            name,
+            typeof content === "string"
+              ? new TextEncoder().encode(content)
+              : new Uint8Array(content),
+          ]),
+        ),
+      );
+      return bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer;
+    };
+
+    it("imports every FIT file in a zip", () => {
+      const bikeStart = new Date(START.getTime() + 86400 * 1000);
+      const result = new FitImporter([
+        {
+          name: "export.zip",
+          data: zip({
+            "run.fit": buildFitFile([RUN]),
+            "rides/ride.FIT": buildFitFile([
+              { startTime: bikeStart, sport: "cycling" },
+            ]),
+            "readme.txt": "not an activity",
+          }),
+        },
+      ]).import();
+
+      expect(result.errors).toEqual([]);
+      expect(result.activities.map((activity) => activity.sport_type)).toEqual([
+        "TrailRun",
+        "Ride",
+      ]);
+    });
+
+    it("names files inside the zip in errors", () => {
+      const result = new FitImporter([
+        {
+          name: "export.zip",
+          data: zip({ "broken.fit": "not a fit file at all" }),
+        },
+      ]).import();
+
+      expect(result.errors).toEqual([
+        { file: "export.zip/broken.fit", message: "Not a FIT file" },
+      ]);
+    });
+
+    it("reports a zip without FIT files", () => {
+      expect(() =>
+        extractFitFiles({
+          name: "photos.zip",
+          data: zip({ "photo.jpg": "jpeg" }),
+        }),
+      ).toThrow("The zip file has no .fit files");
+    });
+
+    it("passes plain FIT files through", () => {
+      const file = { name: "run.fit", data: buildFitFile([RUN]) };
+
+      expect(extractFitFiles(file)).toEqual([file]);
+    });
   });
 
   describe("errors", () => {

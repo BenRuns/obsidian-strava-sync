@@ -4,6 +4,7 @@ import {
   type SessionMesg,
   Stream,
 } from "@garmin/fitsdk";
+import { unzipSync } from "fflate";
 import type { Activity } from "./Activity";
 
 export interface FitFile {
@@ -158,6 +159,7 @@ export const sessionToActivity = (
     elev_low: session.enhancedMinAltitude ?? 0, // m
     elev_high: session.enhancedMaxAltitude ?? 0, // m
     calories: session.totalCalories ?? 0, // kcal
+    source: "FIT",
   };
 };
 
@@ -193,6 +195,41 @@ export const parseFitFile = (data: ArrayBuffer): Activity[] => {
   return sessions.map((session) => sessionToActivity(session, offsetSeconds));
 };
 
+const isZip = (bytes: Uint8Array) =>
+  bytes.length >= 4 &&
+  bytes[0] === 0x50 && // P
+  bytes[1] === 0x4b && // K
+  bytes[2] === 0x03 &&
+  bytes[3] === 0x04;
+
+// The FIT files in a file: the file itself, or every .fit file in a zip
+// (Garmin's activity downloads and bulk exports come zipped).
+export const extractFitFiles = (file: FitFile): FitFile[] => {
+  const bytes = new Uint8Array(file.data);
+
+  if (!isZip(bytes)) {
+    return [file];
+  }
+
+  const entries = Object.entries(
+    unzipSync(bytes, {
+      filter: (entry) => entry.name.toLowerCase().endsWith(".fit"),
+    }),
+  );
+
+  if (entries.length === 0) {
+    throw new FitImportError("The zip file has no .fit files");
+  }
+
+  return entries.map(([name, content]) => ({
+    name: `${file.name}/${name}`,
+    data: content.buffer.slice(
+      content.byteOffset,
+      content.byteOffset + content.byteLength,
+    ),
+  }));
+};
+
 export class FitImporter {
   files: FitFile[];
 
@@ -204,14 +241,27 @@ export class FitImporter {
   import(): FitImportResult {
     const result: FitImportResult = { activities: [], errors: [] };
 
+    const addError = (file: FitFile, error: unknown) =>
+      result.errors.push({
+        file: file.name,
+        message: error instanceof Error ? error.message : String(error),
+      });
+
     for (const file of this.files) {
+      let fitFiles: FitFile[];
       try {
-        result.activities.push(...parseFitFile(file.data));
+        fitFiles = extractFitFiles(file);
       } catch (error) {
-        result.errors.push({
-          file: file.name,
-          message: error instanceof Error ? error.message : String(error),
-        });
+        addError(file, error);
+        continue;
+      }
+
+      for (const fitFile of fitFiles) {
+        try {
+          result.activities.push(...parseFitFile(fitFile.data));
+        } catch (error) {
+          addError(fitFile, error);
+        }
       }
     }
 

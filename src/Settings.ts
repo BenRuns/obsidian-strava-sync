@@ -18,6 +18,8 @@ export const VALID_FRONT_MATTER_PROPERTIES = [
   "elev_high",
   "calories",
   "icon",
+  "url",
+  "source",
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
     stravaTokenExpiresAt: undefined,
   },
   sync: {
+    source: "strava",
     folder: "Strava/{{start_date}}",
     folderDateFormat: "yyyy-MM-dd",
     filename: "{{id}} {{name}}",
@@ -57,14 +60,23 @@ export interface AuthenticationSettings {
   stravaAccessToken?: string;
   stravaRefreshToken?: string;
   stravaTokenExpiresAt?: number;
+  // Only used on Obsidian versions without secret storage (before 1.11.4)
+  garminApiKey?: string;
 }
 
+// Where "Import new activities" gets activities from.
+export type ActivitySource = "strava" | "garmin";
+
 interface SyncSettings {
+  source: ActivitySource;
   folder: string;
   folderDateFormat: string;
   filename: string;
   filenameDateFormat: string;
+  // Start time (in seconds) of the newest activity imported from Strava
   lastActivityTimestamp?: number;
+  // The same for Garmin
+  lastGarminActivityTimestamp?: number;
 }
 
 interface ActivitySettings {

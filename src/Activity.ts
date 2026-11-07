@@ -15,6 +15,10 @@ export interface Activity {
   elev_low: number;
   elev_high: number;
   calories: number;
+  // Link to the activity online, if it has one
+  url?: string;
+  // Where it was imported from: "Strava", "Garmin" or "FIT"
+  source?: string;
 
   [propName: string]: unknown;
 }

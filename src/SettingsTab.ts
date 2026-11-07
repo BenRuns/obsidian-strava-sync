@@ -6,13 +6,19 @@ import {
   type SettingDefinitionItem,
   requireApiVersion,
 } from "obsidian";
-import { DEFAULT_SETTINGS, VALID_FRONT_MATTER_PROPERTIES } from "./Settings";
+import {
+  type ActivitySource,
+  DEFAULT_SETTINGS,
+  VALID_FRONT_MATTER_PROPERTIES,
+} from "./Settings";
 import type StravaSync from "./StravaSync";
 
 const LUXON_FORMAT_URL =
   "https://moment.github.io/luxon/#/formatting?id=table-of-tokens";
 const SYNC_CONFIGURATION_URL =
   "https://github.com/watsonbox/obsidian-strava-sync?tab=readme-ov-file#sync-configuration";
+const GARMIN_PERSONAL_API_URL =
+  "https://developer.garmin.com/gc-developer-program/personal/personal-api/";
 
 // One list of settings, rendered two ways: as declarative definitions on
 // Obsidian 1.13+ (getSettingDefinitions, which also puts them in Obsidian's
@@ -26,6 +32,7 @@ interface SettingRow {
 
 interface SettingSection {
   heading?: string;
+  visible?: () => boolean;
   rows: SettingRow[];
 }
 
@@ -54,9 +61,10 @@ export class SettingsTab extends PluginSettingTab {
 
   // Obsidian 1.13+ renders these, and skips display().
   getSettingDefinitions(): SettingDefinitionItem[] {
-    return this.sections().map(({ heading, rows }) => ({
+    return this.sections().map(({ heading, visible, rows }) => ({
       type: "group" as const,
       heading,
+      visible,
       items: rows.map(({ name, desc, searchable, render }) => ({
         name,
         desc,
@@ -78,7 +86,10 @@ export class SettingsTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    for (const { heading, rows } of this.sections()) {
+    for (const { heading, visible, rows } of this.sections()) {
+      if (visible && !visible()) {
+        continue;
+      }
       if (heading) {
         new Setting(containerEl).setName(heading).setHeading();
       }
@@ -117,10 +128,59 @@ export class SettingsTab extends PluginSettingTab {
   private sections(): SettingSection[] {
     const settings = this.plugin.settings;
     const save = () => void this.plugin.saveSettings();
+    const usesSource = (source: ActivitySource) => () =>
+      settings.sync.source === source;
 
     return [
       {
-        heading: "Authentication",
+        heading: "Activity source",
+        rows: [
+          {
+            name: "Import new activities from",
+            desc: "Strava or Garmin, one at a time. Strava's API needs a paid Strava subscription (since June 2026); Garmin's Personal API is free. Importing a Strava bulk export or FIT files works with either.",
+            render: (setting) =>
+              setting.addDropdown((dropdown) =>
+                dropdown
+                  .addOption("strava", "Strava (needs a Strava subscription)")
+                  .addOption("garmin", "Garmin")
+                  .setValue(settings.sync.source)
+                  .onChange((value) => {
+                    settings.sync.source = value as ActivitySource;
+                    save();
+                    this.refresh();
+                  }),
+              ),
+          },
+        ],
+      },
+      {
+        heading: "Garmin",
+        visible: usesSource("garmin"),
+        rows: [
+          {
+            name: "Garmin API key",
+            desc: linkedDesc(
+              "Create a Personal API key in Garmin Connect (",
+              "Garmin's guide",
+              GARMIN_PERSONAL_API_URL,
+              ") and paste it here. Keys expire after 30 to 365 days, depending on what you choose.",
+            ),
+            render: (setting) =>
+              setting.addText((text) => {
+                text
+                  .setPlaceholder("Paste your API key")
+                  .setValue(this.plugin.getGarminApiKey() ?? "")
+                  .onChange((value) => {
+                    void this.plugin.setGarminApiKey(value);
+                  });
+                text.inputEl.type = "password";
+              }),
+          },
+        ],
+      },
+      {
+        heading: "Strava",
+        visible: usesSource("strava"),
         rows: [
           {
             name: "Strava client ID",

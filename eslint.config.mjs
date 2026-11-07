@@ -32,7 +32,7 @@ export default defineConfig([
       "obsidianmd/ui/sentence-case": [
         "warn",
         {
-          brands: [...DEFAULT_BRANDS, "Strava", "OAuth"],
+          brands: [...DEFAULT_BRANDS, "Strava", "Garmin", "OAuth"],
           acronyms: [...DEFAULT_ACRONYMS, "FIT"],
         },
       ],

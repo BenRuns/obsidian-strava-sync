@@ -63,6 +63,8 @@ export class ActivityImporter {
       elev_low: stravaActivity.elev_low || 0,
       elev_high: stravaActivity.elev_high || 0,
       calories: stravaActivity.calories || 0,
+      url: `https://www.strava.com/activities/${stravaActivity.id}`,
+      source: "Strava",
     };
   }
 }
