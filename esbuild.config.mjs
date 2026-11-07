@@ -1,4 +1,6 @@
+import { appendFileSync, readFileSync, readdirSync } from "node:fs";
 import { builtinModules } from "node:module";
+import { join } from "node:path";
 import process from "node:process";
 import esbuild from "esbuild";
 
@@ -9,6 +11,46 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = process.argv[2] === "production";
+
+// Bundled packages' licenses (MIT, BSD) require their notices to go with
+// every copy, so append each bundled package's license to main.js.
+const licenseNotices = {
+  name: "license-notices",
+  setup(build) {
+    build.onEnd((result) => {
+      if (!result.metafile) return;
+
+      const packages = new Set(
+        Object.keys(result.metafile.inputs)
+          .map((path) => path.match(/node_modules\/((?:@[^/]+\/)?[^/]+)/)?.[1])
+          .filter(Boolean),
+      );
+
+      const notices = [...packages].sort().map((name) => {
+        const dir = join("node_modules", name);
+        const { version, license } = JSON.parse(
+          readFileSync(join(dir, "package.json"), "utf8"),
+        );
+        const file = readdirSync(dir).find((f) =>
+          /^(licen[cs]e|copying)/i.test(f),
+        );
+        if (!file) {
+          throw new Error(`No license file found for bundled package ${name}`);
+        }
+        const text = readFileSync(join(dir, file), "utf8").replaceAll(
+          "*/",
+          "* /",
+        );
+        return `${name} ${version} (${license})\n\n${text.trim()}`;
+      });
+
+      appendFileSync(
+        build.initialOptions.outfile,
+        `\n/*\nTHIRD-PARTY SOFTWARE NOTICES\n\n${notices.join("\n\n---\n\n")}\n*/\n`,
+      );
+    });
+  },
+};
 
 const context = await esbuild.context({
   banner: {
@@ -30,16 +72,20 @@ const context = await esbuild.context({
     "@lezer/common",
     "@lezer/highlight",
     "@lezer/lr",
-    ...builtinModules,
+    // Except "buffer": the FIT parser uses the npm buffer package, which
+    // must be bundled to work on mobile.
+    ...builtinModules.filter((m) => m !== "buffer"),
     ...builtinModules.map((m) => `node:${m}`),
   ],
   format: "cjs",
-  target: "es2020",
+  target: "es2018",
   logLevel: "info",
   sourcemap: prod ? false : "inline",
   treeShaking: true,
   outfile: "main.js",
   minify: prod,
+  metafile: true,
+  plugins: [licenseNotices],
 });
 
 if (prod) {

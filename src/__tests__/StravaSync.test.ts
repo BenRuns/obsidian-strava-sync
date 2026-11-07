@@ -168,7 +168,9 @@ describe("StravaSync", () => {
       expect.any(Number),
     );
     expect(Notice).toHaveBeenCalledWith(
-      "🛑 1 of 2 FIT files could not be imported:\n\nnotes.txt: Not a FIT file",
+      expect.stringMatching(
+        /^🛑 1 of 2 FIT files could not be imported:\n\nnotes.txt: Not a FIT file/,
+      ),
       expect.any(Number),
     );
   });

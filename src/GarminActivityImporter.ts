@@ -47,7 +47,7 @@ export class GarminActivityImporter {
       const name = `Garmin activity ${summary.activityId}`;
       try {
         const data = await this.garminApi.downloadActivity(summary.activityId);
-        const { activities, errors } = new FitImporter([
+        const { activities, errors } = await new FitImporter([
           { name, data },
         ]).import();
 

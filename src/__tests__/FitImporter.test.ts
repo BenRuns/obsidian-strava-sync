@@ -1,7 +1,8 @@
-import type { ActivityMesg, SessionMesg } from "@garmin/fitsdk";
 import { zipSync } from "fflate";
 import {
+  type FitActivity,
   FitImporter,
+  type FitSession,
   extractFitFiles,
   parseFitFile,
   sessionToActivity,
@@ -10,8 +11,8 @@ import {
 import { RUN, START, buildFitFile } from "./fitFiles";
 
 describe("FitImporter", () => {
-  it("reads an activity from a FIT file", () => {
-    const [activity] = parseFitFile(buildFitFile([RUN]));
+  it("reads an activity from a FIT file", async () => {
+    const [activity] = await parseFitFile(buildFitFile([RUN]));
 
     expect(activity).toEqual({
       id: START.getTime() / 1000,
@@ -34,9 +35,9 @@ describe("FitImporter", () => {
     });
   });
 
-  it("makes one activity per session in a multisport file", () => {
+  it("makes one activity per session in a multisport file", async () => {
     const bikeStart = new Date(START.getTime() + 1800 * 1000);
-    const activities = parseFitFile(
+    const activities = await parseFitFile(
       buildFitFile([
         { startTime: START, sport: "swimming", totalElapsedTime: 1800 },
         { startTime: bikeStart, sport: "cycling", totalElapsedTime: 3600 },
@@ -50,8 +51,8 @@ describe("FitImporter", () => {
     expect(activities[1].id).toBe(bikeStart.getTime() / 1000);
   });
 
-  it("uses zero for values the file doesn't have", () => {
-    const [activity] = parseFitFile(
+  it("uses zero for values the file doesn't have", async () => {
+    const [activity] = await parseFitFile(
       buildFitFile([{ startTime: START, sport: "training" }]),
     );
 
@@ -64,26 +65,26 @@ describe("FitImporter", () => {
   it.each([
     ["running", undefined, "Run"],
     ["running", "trail", "TrailRun"],
-    ["running", "virtualActivity", "VirtualRun"],
+    ["running", "virtual_activity", "VirtualRun"],
     ["cycling", undefined, "Ride"],
     ["cycling", "mountain", "MountainBikeRide"],
-    ["cycling", "gravelCycling", "GravelRide"],
-    ["cycling", "indoorCycling", "VirtualRide"],
-    ["eBiking", undefined, "EBikeRide"],
+    ["cycling", "gravel_cycling", "GravelRide"],
+    ["cycling", "indoor_cycling", "VirtualRide"],
+    ["e_biking", undefined, "EBikeRide"],
     ["swimming", undefined, "Swim"],
     ["hiking", undefined, "Hike"],
-    ["alpineSkiing", "backcountry", "BackcountrySki"],
-    ["training", "strengthTraining", "WeightTraining"],
+    ["alpine_skiing", "backcountry", "BackcountrySki"],
+    ["training", "strength_training", "WeightTraining"],
     ["training", "yoga", "Yoga"],
-    ["fitnessEquipment", "indoorRowing", "Rowing"],
-    ["fitnessEquipment", "elliptical", "Elliptical"],
+    ["fitness_equipment", "indoor_rowing", "Rowing"],
+    ["fitness_equipment", "elliptical", "Elliptical"],
     ["boxing", undefined, "Workout"],
   ])("maps sport %s / %s to %s", (sport, subSport, expected) => {
     const activity = sessionToActivity({
-      startTime: START,
+      start_time: START,
       sport,
-      subSport,
-    } as SessionMesg);
+      sub_sport: subSport,
+    } as FitSession);
 
     expect(activity.sport_type).toBe(expected);
   });
@@ -98,8 +99,22 @@ describe("FitImporter", () => {
     const startTime = new Date(2026, 9, 25, hour, 0);
 
     expect(
-      sessionToActivity({ startTime, sport: "running" } as SessionMesg).name,
+      sessionToActivity({
+        start_time: startTime,
+        sport: "running",
+      } as FitSession).name,
     ).toBe(name);
+  });
+
+  it("reads the device's local time from the file", async () => {
+    // 07:30 UTC, recorded 7 hours behind UTC: 00:30 local.
+    const [activity] = await parseFitFile(
+      buildFitFile([{ startTime: START, sport: "running" }], {
+        utcOffsetSeconds: -7 * 3600,
+      }),
+    );
+
+    expect(activity.name).toBe("Night Run");
   });
 
   it("names activities by the time where they were recorded", () => {
@@ -107,8 +122,10 @@ describe("FitImporter", () => {
     const startTime = new Date("2022-08-29T18:31:22Z");
 
     expect(
-      sessionToActivity({ startTime, sport: "walking" } as SessionMesg, -21600)
-        .name,
+      sessionToActivity(
+        { start_time: startTime, sport: "walking" } as FitSession,
+        -21600,
+      ).name,
     ).toBe("Afternoon Walk");
   });
 
@@ -118,10 +135,10 @@ describe("FitImporter", () => {
     expect(
       utcOffsetSeconds({
         timestamp,
-        localTimestamp: 1030711005,
-      } as ActivityMesg),
+        local_timestamp: new Date("2022-08-29T12:36:45Z"),
+      } as FitActivity),
     ).toBe(-21600);
-    expect(utcOffsetSeconds({ timestamp } as ActivityMesg)).toBeUndefined();
+    expect(utcOffsetSeconds({ timestamp } as FitActivity)).toBeUndefined();
     expect(utcOffsetSeconds(undefined)).toBeUndefined();
   });
 
@@ -130,10 +147,10 @@ describe("FitImporter", () => {
 
     expect(
       sessionToActivity({
-        startTime,
+        start_time: startTime,
         sport: "cycling",
-        subSport: "mountain",
-      } as SessionMesg).name,
+        sub_sport: "mountain",
+      } as FitSession).name,
     ).toBe("Morning Mountain Bike Ride");
   });
 
@@ -155,9 +172,9 @@ describe("FitImporter", () => {
       ) as ArrayBuffer;
     };
 
-    it("imports every FIT file in a zip", () => {
+    it("imports every FIT file in a zip", async () => {
       const bikeStart = new Date(START.getTime() + 86400 * 1000);
-      const result = new FitImporter([
+      const result = await new FitImporter([
         {
           name: "export.zip",
           data: zip({
@@ -177,8 +194,8 @@ describe("FitImporter", () => {
       ]);
     });
 
-    it("names files inside the zip in errors", () => {
-      const result = new FitImporter([
+    it("names files inside the zip in errors", async () => {
+      const result = await new FitImporter([
         {
           name: "export.zip",
           data: zip({ "broken.fit": "not a fit file at all" }),
@@ -186,7 +203,10 @@ describe("FitImporter", () => {
       ]).import();
 
       expect(result.errors).toEqual([
-        { file: "export.zip/broken.fit", message: "Not a FIT file" },
+        {
+          file: "export.zip/broken.fit",
+          message: expect.stringMatching(/^Not a FIT file/),
+        },
       ]);
     });
 
@@ -207,26 +227,28 @@ describe("FitImporter", () => {
   });
 
   describe("errors", () => {
-    it("rejects files that aren't FIT", () => {
+    it("rejects files that aren't FIT", async () => {
       const data = new TextEncoder().encode("not a fit file at all")
         .buffer as ArrayBuffer;
 
-      expect(() => parseFitFile(data)).toThrow("Not a FIT file");
+      await expect(parseFitFile(data)).rejects.toThrow("Not a FIT file");
     });
 
-    it("rejects damaged files", () => {
+    it("rejects damaged files", async () => {
       const data = buildFitFile([RUN]);
       new Uint8Array(data)[20] ^= 0xff;
 
-      expect(() => parseFitFile(data)).toThrow("integrity check failed");
+      await expect(parseFitFile(data)).rejects.toThrow("The file is damaged");
     });
 
-    it("rejects files without an activity", () => {
-      expect(() => parseFitFile(buildFitFile([]))).toThrow("no sessions");
+    it("rejects files without an activity", async () => {
+      await expect(parseFitFile(buildFitFile([]))).rejects.toThrow(
+        "no sessions",
+      );
     });
 
-    it("reports bad files and imports the rest", () => {
-      const result = new FitImporter([
+    it("reports bad files and imports the rest", async () => {
+      const result = await new FitImporter([
         { name: "run.fit", data: buildFitFile([RUN]) },
         { name: "settings.fit", data: buildFitFile([]) },
       ]).import();

@@ -115,7 +115,7 @@ export default class StravaSync extends Plugin {
   async importActivitiesFromFIT() {
     try {
       const files = await this.fitFileSelector.selectFiles();
-      const { activities, errors } = new FitImporter(files).import();
+      const { activities, errors } = await new FitImporter(files).import();
       this.activities = activities;
 
       if (activities.length > 0) {
