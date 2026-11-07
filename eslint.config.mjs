@@ -1,4 +1,5 @@
 import obsidianmd from "eslint-plugin-obsidianmd";
+import { DEFAULT_ACRONYMS } from "eslint-plugin-obsidianmd/dist/lib/rules/ui/acronyms.js";
 import { DEFAULT_BRANDS } from "eslint-plugin-obsidianmd/dist/lib/rules/ui/brands.js";
 // Obsidian's plugin guidelines, the same rules its automated review uses.
 // Biome (yarn lint) stays the main linter and formatter; this checks
@@ -30,7 +31,10 @@ export default defineConfig([
       // the defaults, so it may still show these as warnings.
       "obsidianmd/ui/sentence-case": [
         "warn",
-        { brands: [...DEFAULT_BRANDS, "Strava", "OAuth"] },
+        {
+          brands: [...DEFAULT_BRANDS, "Strava", "OAuth"],
+          acronyms: [...DEFAULT_ACRONYMS, "FIT"],
+        },
       ],
     },
   },

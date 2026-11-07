@@ -4,6 +4,7 @@ import type { Activity } from "./Activity";
 import { ActivityImporter } from "./ActivityImporter";
 import { ActivitySerializer } from "./ActivitySerializer";
 import { FileSelector } from "./FileSelector";
+import { FitImporter } from "./FitImporter";
 import { DEFAULT_SETTINGS, type Settings } from "./Settings";
 import { SettingsTab } from "./SettingsTab";
 import { StravaApi } from "./StravaApi";
@@ -18,6 +19,7 @@ export default class StravaSync extends Plugin {
   stravaApi: StravaApi;
   activities: Activity[] = [];
   fileSelector: FileSelector;
+  fitFileSelector: FileSelector;
   activitySerializer: ActivitySerializer;
 
   async onload() {
@@ -26,6 +28,7 @@ export default class StravaSync extends Plugin {
     this.settingsTab = new SettingsTab(this.app, this);
     this.stravaApi = new StravaApi(this.settings.authentication);
     this.fileSelector = new FileSelector(".csv");
+    this.fitFileSelector = new FileSelector(".fit");
     this.activitySerializer = new ActivitySerializer(this.app, this.settings);
 
     addIcon(
@@ -67,6 +70,14 @@ export default class StravaSync extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: "import-fit",
+      name: "Import activities from FIT files",
+      callback: () => {
+        void this.importActivitiesFromFIT();
+      },
+    });
+
     this.addSettingTab(this.settingsTab);
   }
 
@@ -91,6 +102,34 @@ export default class StravaSync extends Plugin {
           ERROR_NOTICE_DURATION,
         );
       }
+    }
+  }
+
+  async importActivitiesFromFIT() {
+    try {
+      const files = await this.fitFileSelector.selectFiles();
+      const { activities, errors } = new FitImporter(files).import();
+      this.activities = activities;
+
+      if (activities.length > 0) {
+        await this.serializeActivities(false);
+      }
+
+      if (errors.length > 0) {
+        console.error("FIT files that could not be imported:", errors);
+        new Notice(
+          `🛑 ${errors.length} of ${files.length} FIT files could not be imported:\n\n${errors
+            .map(({ file, message }) => `${file}: ${message}`)
+            .join("\n")}`,
+          ERROR_NOTICE_DURATION,
+        );
+      }
+    } catch (error) {
+      console.error("Unexpected error during FIT import:", error);
+      new Notice(
+        "🛑 An unexpected error occurred during import. Check the console for details.",
+        ERROR_NOTICE_DURATION,
+      );
     }
   }
 

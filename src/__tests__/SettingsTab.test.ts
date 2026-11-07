@@ -122,6 +122,7 @@ describe("SettingsTab", () => {
           "Filename",
           "Filename date format",
           "Import Strava bulk export",
+          "Import FIT files",
         ],
       },
       {
@@ -305,6 +306,16 @@ describe("SettingsTab", () => {
         8000,
       );
     });
+  });
+
+  it("imports FIT files", () => {
+    (plugin as unknown as Record<string, unknown>).importActivitiesFromFIT =
+      jest.fn().mockResolvedValue(undefined);
+    const [button] = renderRow("Import FIT files").components;
+
+    button.onClickHandler?.();
+
+    expect(plugin.importActivitiesFromFIT).toHaveBeenCalled();
   });
 
   it("shows the Powered by Strava logo", () => {

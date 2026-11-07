@@ -4,8 +4,8 @@ module.exports = {
   moduleFileExtensions: ["ts", "js"],
   testMatch: ["**/__tests__/**/*.test.ts"],
   transform: {
-    "^.+\\.ts$": "ts-jest",
+    "^.+\\.[tj]s$": "ts-jest",
   },
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
-  transformIgnorePatterns: ["node_modules/(?!(csv-parse)/)"],
+  transformIgnorePatterns: ["node_modules/(?!(csv-parse|@garmin/fitsdk)/)"],
 };

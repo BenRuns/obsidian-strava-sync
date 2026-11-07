@@ -275,6 +275,16 @@ export class SettingsTab extends PluginSettingTab {
                   .onClick(() => void this.importCSV()),
               ),
           },
+          {
+            name: "Import FIT files",
+            desc: "Import activity files exported from Garmin, COROS, Wahoo, Polar, Suunto and other devices. Select one or more .fit files.",
+            render: (setting) =>
+              setting.addButton((button) =>
+                button
+                  .setButtonText("Import FIT")
+                  .onClick(() => void this.plugin.importActivitiesFromFIT()),
+              ),
+          },
         ],
       },
       {

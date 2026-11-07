@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 import { App, Notice, type PluginManifest, Vault } from "obsidian";
 import StravaSync from "../StravaSync";
+import { RUN, buildFitFile } from "./fitFiles";
 
 jest.mock("obsidian");
 
@@ -33,6 +34,7 @@ jest.mock("../ActivityImporter", () => ({
 
 jest.mock("../FileSelector", () => ({
   FileSelector: jest.fn().mockImplementation(() => ({
+    selectFiles: jest.fn(),
     selectContents: jest
       .fn()
       .mockResolvedValue(
@@ -129,6 +131,29 @@ describe("StravaSync", () => {
 
     expect(Notice).toHaveBeenCalledWith(
       "🏃 3 activities created.",
+      expect.any(Number),
+    );
+  });
+
+  test("Import activities from FIT files", async () => {
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    (plugin.fitFileSelector.selectFiles as jest.Mock).mockResolvedValue([
+      { name: "run.fit", data: buildFitFile([RUN]) },
+      { name: "notes.txt", data: new ArrayBuffer(8) },
+    ]);
+
+    await plugin.importActivitiesFromFIT();
+
+    expect(plugin.activitySerializer.serialize).toHaveBeenCalledTimes(1);
+    expect(plugin.activitySerializer.serialize).toHaveBeenCalledWith(
+      expect.objectContaining({ sport_type: "TrailRun", distance: 10000 }),
+    );
+    expect(Notice).toHaveBeenCalledWith(
+      "🏃 1 activities created.",
+      expect.any(Number),
+    );
+    expect(Notice).toHaveBeenCalledWith(
+      "🛑 1 of 2 FIT files could not be imported:\n\nnotes.txt: Not a FIT file",
       expect.any(Number),
     );
   });

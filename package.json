@@ -7,7 +7,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "version": "node version-bump.mjs && git add manifest.json versions.json",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test": "jest",
     "lint": "biome check .",
     "lint:obsidian": "eslint . --max-warnings=0"
   },
@@ -34,6 +34,7 @@
     "typescript": "4.7.4"
   },
   "dependencies": {
+    "@garmin/fitsdk": "21.218.0",
     "@types/handlebars": "^4.1.0",
     "csv-parse": "^5.5.6",
     "handlebars": "^4.7.8",

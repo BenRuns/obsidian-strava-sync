@@ -32,4 +32,38 @@ export class FileSelector {
       fileInput.click();
     });
   }
+
+  selectFiles(): Promise<{ name: string; data: ArrayBuffer }[]> {
+    return new Promise((resolve, reject) => {
+      const fileInput = createEl("input");
+      fileInput.type = "file";
+      fileInput.accept = this.type;
+      fileInput.multiple = true;
+
+      fileInput.onchange = async (event) => {
+        const files = Array.from(
+          (event.target as HTMLInputElement).files ?? [],
+        );
+        if (files.length === 0) {
+          reject(new Error("No file selected"));
+          return;
+        }
+
+        try {
+          resolve(
+            await Promise.all(
+              files.map(async (file) => ({
+                name: file.name,
+                data: await file.arrayBuffer(),
+              })),
+            ),
+          );
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      };
+
+      fileInput.click();
+    });
+  }
 }
