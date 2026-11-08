@@ -74,6 +74,7 @@ describe("SettingsTab", () => {
       setGarminApiKey: jest.fn().mockResolvedValue(undefined),
       setGarminApiKeyName: jest.fn().mockResolvedValue(undefined),
       setStravaClientSecretName: jest.fn().mockResolvedValue(undefined),
+      openReimportModal: jest.fn(),
       stravaApi: {
         buildAuthorizeUrl: () => "https://www.strava.com/oauth/authorize",
       },
@@ -133,6 +134,7 @@ describe("SettingsTab", () => {
           "Folder date format",
           "Filename",
           "Filename date format",
+          "Re-import activities",
           "Import Strava bulk export",
           "Import FIT files",
         ],
@@ -319,6 +321,14 @@ describe("SettingsTab", () => {
         8000,
       );
     });
+  });
+
+  it("opens the re-import dialog", () => {
+    const [button] = renderRow("Re-import activities").components;
+
+    button.onClickHandler?.();
+
+    expect(plugin.openReimportModal).toHaveBeenCalled();
   });
 
   it("imports FIT files", () => {

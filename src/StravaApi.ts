@@ -115,9 +115,11 @@ export class StravaApi {
     this.settings.stravaTokenExpiresAt = response.expires_at;
   }
 
-  async listActivities(params: { per_page: number; after?: number }): Promise<
-    StravaActivity[]
-  > {
+  async listActivities(params: {
+    per_page: number;
+    after?: number;
+    page?: number;
+  }): Promise<StravaActivity[]> {
     await this.refreshTokenIfExpired();
     const queryParams = new URLSearchParams(
       Object.entries(params).map(([key, value]) => [key, String(value)]),

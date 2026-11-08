@@ -58,10 +58,27 @@ export const requireApiVersion = jest.fn().mockReturnValue(true);
 // Records the rows a settings tab adds, so tests can inspect them.
 class MockContainerEl {
   settings: Setting[] = [];
+  createEl = jest.fn();
 
   empty() {
     this.settings = [];
   }
+}
+
+export class Modal {
+  app: unknown;
+  contentEl = new MockContainerEl();
+  titleEl = { setText: jest.fn() };
+  open = jest.fn(() => this.onOpen());
+  close = jest.fn(() => this.onClose());
+
+  constructor(app: unknown) {
+    this.app = app;
+  }
+
+  onOpen() {}
+
+  onClose() {}
 }
 
 export class PluginSettingTab {

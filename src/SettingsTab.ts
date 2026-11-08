@@ -342,6 +342,16 @@ export class SettingsTab extends PluginSettingTab {
               ),
           },
           {
+            name: "Re-import activities",
+            desc: "Fetch activities from a date you choose again, from the source above, and create notes for any that are missing. Existing notes aren't changed.",
+            render: (setting) =>
+              setting.addButton((button) =>
+                button
+                  .setButtonText("Re-import…")
+                  .onClick(() => this.plugin.openReimportModal()),
+              ),
+          },
+          {
             name: "Import Strava bulk export",
             desc: linkedDesc(
               "Import activities.csv from a Strava bulk export CSV file following ",

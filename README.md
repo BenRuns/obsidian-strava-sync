@@ -181,7 +181,13 @@ The property `id` is always added.
 
 Next, either by clicking the Strava icon in the [ribbon](https://help.obsidian.md/User+interface/Ribbon) or using the command "Import new activities", the plugin will fetch and import your 30 most recent activities from the source chosen in settings (Strava or Garmin).
 
-Each time new activities are imported, the start date of the last imported activity is saved, separately for each source. Next time you import new activities, only activities after that date will be imported. From Garmin, up to 500 activities are imported at a time, and if any fail to download they are tried again next time.
+Each time new activities are imported, the start date of the last imported activity is saved, separately for each source. Next time you import new activities, only activities after that date will be imported. From Garmin, up to 500 activities are imported at a time, and if any fail to download they are tried again next time. From Strava, up to 90 are imported at a time, to stay under Strava's rate limit.
+
+An activity whose note already exists is skipped: its note is never overwritten. The note's path comes from the folder and filename settings, so if you rename an activity, or change those settings, it's imported again as a new note.
+
+### Re-importing Activities
+
+To import activities again, for example after deleting some notes, use the "Re-import activities since a date" command or the "Re-import activities" button in settings, and choose a date. Activities from that date on are fetched again from the source chosen in settings, and notes are created for any that are missing. Existing notes aren't changed, and the next "Import new activities" carries on from where it was.
 
 ### Importing FIT Files
 

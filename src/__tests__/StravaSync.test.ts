@@ -8,7 +8,9 @@ import {
   Vault,
   requireApiVersion,
 } from "obsidian";
+import { ActivityImporter } from "../ActivityImporter";
 import { DEFAULT_TEMPLATE, LEGACY_DEFAULT_TEMPLATE } from "../ActivityRenderer";
+import { GarminActivityImporter } from "../GarminActivityImporter";
 import { GarminApiError } from "../GarminApi";
 import StravaSync from "../StravaSync";
 import { RUN, buildFitFile } from "./fitFiles";
@@ -194,6 +196,74 @@ describe("StravaSync", () => {
       "🏃 1 new activities created, 1 already existing.",
       expect.any(Number),
     );
+  });
+
+  describe("re-importing from a date", () => {
+    const SINCE = Date.parse("2023-04-01T00:00:00Z") / 1000;
+
+    test("fetches from Strava since then, and keeps the last import", async () => {
+      plugin.settings.sync.lastActivityTimestamp =
+        Date.parse("2023-05-01T00:00:00Z") / 1000;
+
+      await plugin.importNewActivities(SINCE);
+
+      expect(ActivityImporter).toHaveBeenLastCalledWith(
+        plugin.stravaApi,
+        SINCE,
+      );
+      // The re-imported activities are older: the next sync carries on from
+      // where it was
+      expect(plugin.settings.sync.lastActivityTimestamp).toBe(
+        Date.parse("2023-05-01T00:00:00Z") / 1000,
+      );
+      expect(Notice).toHaveBeenCalledWith(
+        "🏃 2 activities created.",
+        expect.any(Number),
+      );
+    });
+
+    test("fetches from Garmin since then, and keeps the last import", async () => {
+      const secretStorage = (
+        app as unknown as {
+          secretStorage: { secrets: Record<string, string> };
+        }
+      ).secretStorage;
+      await plugin.loadSettings();
+      plugin.settings.sync.source = "garmin";
+      plugin.settings.sync.lastGarminActivityTimestamp = SINCE + 86400 * 60;
+      secretStorage.secrets.key = "garmin-key";
+      await plugin.setGarminApiKeyName("key");
+      mockGarminImport.mockResolvedValue({
+        activities: [
+          {
+            id: SINCE + 3600,
+            name: "Run",
+            start_date: new Date((SINCE + 3600) * 1000),
+          },
+        ],
+        errors: [],
+      });
+
+      await plugin.importNewActivities(SINCE);
+
+      expect(GarminActivityImporter).toHaveBeenLastCalledWith(
+        plugin.garminApi,
+        SINCE,
+      );
+      expect(plugin.settings.sync.lastGarminActivityTimestamp).toBe(
+        SINCE + 86400 * 60,
+      );
+    });
+
+    test("moves the last import on when re-imported activities are newer", async () => {
+      plugin.settings.sync.lastActivityTimestamp = SINCE - 86400;
+
+      await plugin.importNewActivities(SINCE - 86400 * 30);
+
+      expect(plugin.settings.sync.lastActivityTimestamp).toBe(
+        Date.parse("2023-04-16T18:00:00Z") / 1000,
+      );
+    });
   });
 
   // The secrets in the mock App's secret storage

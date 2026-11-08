@@ -8,6 +8,7 @@ import { FileSelector } from "./FileSelector";
 import { FitImporter } from "./FitImporter";
 import { GarminActivityImporter } from "./GarminActivityImporter";
 import { GarminApi, GarminApiError } from "./GarminApi";
+import { ReimportModal } from "./ReimportModal";
 import { DEFAULT_SETTINGS, type Settings } from "./Settings";
 import { SettingsTab } from "./SettingsTab";
 import { StravaApi } from "./StravaApi";
@@ -71,6 +72,14 @@ export default class StravaSync extends Plugin {
       name: "Import new activities",
       callback: () => {
         void this.importNewActivities();
+      },
+    });
+
+    this.addCommand({
+      id: "reimport",
+      name: "Re-import activities since a date",
+      callback: () => {
+        this.openReimportModal();
       },
     });
 
@@ -146,15 +155,43 @@ export default class StravaSync extends Plugin {
   }
 
   // From the source chosen in settings: Strava or Garmin, never both.
-  async importNewActivities() {
+  // `since` (seconds) re-imports activities that started after it, rather
+  // than after the last import. Either way, existing notes are skipped.
+  async importNewActivities(since?: number) {
     if (this.settings.sync.source === "garmin") {
-      await this.importNewGarminActivities();
+      await this.importNewGarminActivities(since);
     } else {
-      await this.importNewStravaActivities();
+      await this.importNewStravaActivities(since);
     }
   }
 
-  private async importNewGarminActivities() {
+  openReimportModal() {
+    new ReimportModal(
+      this.app,
+      this.settings.sync.source === "garmin" ? "Garmin" : "Strava",
+      (since) => void this.importNewActivities(since),
+    ).open();
+  }
+
+  private importingNotice(sourceName: string, since?: number) {
+    new Notice(
+      since === undefined
+        ? `🔄 Importing new activities from ${sourceName}...`
+        : `🔄 Re-importing activities from ${sourceName} since ${new Date((since + 1) * 1000).toLocaleDateString()}...`,
+      SUCCESS_NOTICE_DURATION,
+    );
+  }
+
+  // The newest start time of the last import and these activities: never
+  // earlier, so re-importing doesn't make the next sync fetch old ones again.
+  private newestStart(activities: Activity[], last?: number): number {
+    return Math.max(
+      last ?? 0,
+      ...activities.map((activity) => activity.start_date.getTime() / 1000),
+    );
+  }
+
+  private async importNewGarminActivities(since?: number) {
     if (!this.garminApi.isAuthenticated()) {
       new Notice(
         "🛑 Please add your Garmin API key in the plugin settings.",
@@ -164,18 +201,15 @@ export default class StravaSync extends Plugin {
     }
 
     try {
-      new Notice(
-        "🔄 Importing new activities from Garmin...",
-        SUCCESS_NOTICE_DURATION,
-      );
+      this.importingNotice("Garmin", since);
 
       const { activities, errors } = await new GarminActivityImporter(
         this.garminApi,
-        this.settings.sync.lastGarminActivityTimestamp,
+        since ?? this.settings.sync.lastGarminActivityTimestamp,
       ).importLatestActivities();
       this.activities = activities;
 
-      await this.serializeActivities(true);
+      await this.serializeActivities(since === undefined);
 
       // Only move on once every activity has imported, so failed ones are
       // tried again next time.
@@ -186,8 +220,9 @@ export default class StravaSync extends Plugin {
           ERROR_NOTICE_DURATION,
         );
       } else if (activities.length > 0) {
-        this.settings.sync.lastGarminActivityTimestamp = Math.max(
-          ...activities.map((activity) => activity.start_date.getTime() / 1000),
+        this.settings.sync.lastGarminActivityTimestamp = this.newestStart(
+          activities,
+          this.settings.sync.lastGarminActivityTimestamp,
         );
       }
 
@@ -203,7 +238,7 @@ export default class StravaSync extends Plugin {
     }
   }
 
-  private async importNewStravaActivities() {
+  private async importNewStravaActivities(since?: number) {
     this.loadStravaClientSecret();
 
     try {
@@ -215,23 +250,19 @@ export default class StravaSync extends Plugin {
         return;
       }
 
-      new Notice(
-        "🔄 Importing new activities from Strava...",
-        SUCCESS_NOTICE_DURATION,
-      );
+      this.importingNotice("Strava", since);
 
       this.activities = await new ActivityImporter(
         this.stravaApi,
-        this.settings.sync.lastActivityTimestamp,
+        since ?? this.settings.sync.lastActivityTimestamp,
       ).importLatestActivities();
 
-      await this.serializeActivities(true);
+      await this.serializeActivities(since === undefined);
 
       if (this.activities.length > 0) {
-        this.settings.sync.lastActivityTimestamp = Math.max(
-          ...this.activities.map(
-            (activity) => activity.start_date.getTime() / 1000,
-          ),
+        this.settings.sync.lastActivityTimestamp = this.newestStart(
+          this.activities,
+          this.settings.sync.lastActivityTimestamp,
         );
       }
 
