@@ -1,7 +1,7 @@
 {
   "name": "physical-activity-importer",
   "version": "1.1.0",
-  "description": "Import workouts from Garmin, Strava and FIT files into Obsidian",
+  "description": "Import your workouts and activities as notes. Sync from Garmin Connect or Strava, or import FIT files from Garmin, COROS, Wahoo, Polar, Suunto and other devices.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -13,10 +13,20 @@
   },
   "keywords": [
     "obsidian",
+    "obsidian-plugin",
     "garmin",
+    "garmin-connect",
     "strava",
     "fit",
-    "workouts"
+    "fit-files",
+    "coros",
+    "wahoo",
+    "polar",
+    "suunto",
+    "workouts",
+    "fitness",
+    "running",
+    "cycling"
   ],
   "author": "Benjamin Patterson",
   "authorUrl": "https://github.com/BenRuns",
