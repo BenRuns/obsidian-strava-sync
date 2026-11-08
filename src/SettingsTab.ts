@@ -7,17 +7,17 @@ import {
   type SettingDefinitionItem,
   requireApiVersion,
 } from "obsidian";
+import type PhysicalActivityImporter from "./PhysicalActivityImporter";
 import {
   type ActivitySource,
   DEFAULT_SETTINGS,
   VALID_FRONT_MATTER_PROPERTIES,
 } from "./Settings";
-import type StravaSync from "./StravaSync";
 
 const LUXON_FORMAT_URL =
   "https://moment.github.io/luxon/#/formatting?id=table-of-tokens";
 const SYNC_CONFIGURATION_URL =
-  "https://github.com/watsonbox/obsidian-strava-sync?tab=readme-ov-file#sync-configuration";
+  "https://github.com/BenRuns/obsidian-strava-sync?tab=readme-ov-file#sync-configuration";
 const GARMIN_PERSONAL_API_URL =
   "https://developer.garmin.com/gc-developer-program/personal/personal-api/";
 
@@ -53,9 +53,9 @@ const linkedDesc = (
   });
 
 export class SettingsTab extends PluginSettingTab {
-  plugin: StravaSync;
+  plugin: PhysicalActivityImporter;
 
-  constructor(app: App, plugin: StravaSync) {
+  constructor(app: App, plugin: PhysicalActivityImporter) {
     super(app, plugin);
     this.plugin = plugin;
   }
@@ -246,6 +246,8 @@ export class SettingsTab extends PluginSettingTab {
             name: "Authenticate with Strava",
             desc: "Click to start the OAuth flow with Strava",
             render: (setting) => {
+              // Shows the button as Strava's "Connect with Strava" image
+              setting.setClass("physical-activity-importer-strava-connect");
               if (settings.authentication.stravaAccessToken) {
                 setting.controlEl.createDiv({ text: "✅" });
               }
@@ -433,7 +435,7 @@ export class SettingsTab extends PluginSettingTab {
                 fragment.createEl("br"),
                 fragment.createEl("a", {
                   text: "More information",
-                  href: "https://github.com/watsonbox/obsidian-strava-sync?tab=readme-ov-file#content",
+                  href: "https://github.com/BenRuns/obsidian-strava-sync?tab=readme-ov-file#content",
                 }),
               );
             }),
@@ -469,6 +471,8 @@ export class SettingsTab extends PluginSettingTab {
         ],
       },
       {
+        // Strava's brand guidelines ask for this wherever Strava data is used
+        visible: usesSource("strava"),
         rows: [
           {
             name: "Powered by Strava",

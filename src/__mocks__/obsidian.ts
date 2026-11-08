@@ -172,6 +172,13 @@ export class Setting {
     return this;
   }
 
+  classes: string[] = [];
+
+  setClass(cls: string) {
+    this.classes.push(cls);
+    return this;
+  }
+
   private addControl(callback: (component: MockComponent) => unknown) {
     const component = new MockComponent();
     this.components.push(component);

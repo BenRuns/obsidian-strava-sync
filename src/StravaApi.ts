@@ -28,7 +28,7 @@ export interface StravaActivity {
 
 export class StravaApi {
   private readonly SCOPES = "read,activity:read_all";
-  private readonly REDIRECT_URI = "obsidian://strava-sync";
+  private readonly REDIRECT_URI = "obsidian://physical-activity-importer";
 
   settings: AuthenticationSettings;
 

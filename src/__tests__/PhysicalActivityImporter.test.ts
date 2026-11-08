@@ -12,7 +12,7 @@ import { ActivityImporter } from "../ActivityImporter";
 import { DEFAULT_TEMPLATE, LEGACY_DEFAULT_TEMPLATE } from "../ActivityRenderer";
 import { GarminActivityImporter } from "../GarminActivityImporter";
 import { GarminApiError } from "../GarminApi";
-import StravaSync from "../StravaSync";
+import PhysicalActivityImporter from "../PhysicalActivityImporter";
 import { RUN, buildFitFile } from "./fitFiles";
 
 jest.mock("obsidian");
@@ -76,8 +76,8 @@ jest.mock("../StravaApi", () => ({
   })),
 }));
 
-describe("StravaSync", () => {
-  let plugin: StravaSync;
+describe("PhysicalActivityImporter", () => {
+  let plugin: PhysicalActivityImporter;
   let app: App;
   let vault: Vault;
   let mockManifest: PluginManifest;
@@ -88,20 +88,40 @@ describe("StravaSync", () => {
     app.vault = vault;
 
     mockManifest = {
-      id: "strava-sync",
-      name: "Strava Sync",
+      id: "physical-activity-importer",
+      name: "Physical Activity Importer",
       version: "1.0.0",
-      minAppVersion: "0.15.0",
-      description: "Sync Strava activities to Obsidian",
+      minAppVersion: "1.4.0",
+      description: "Import workouts as notes",
       author: "Your Name",
       authorUrl: "https://github.com/yourusername",
       isDesktopOnly: false,
     };
 
-    plugin = new StravaSync(app, mockManifest);
+    plugin = new PhysicalActivityImporter(app, mockManifest);
 
     // Call onload to initialize fileSelector and activitySerializer
     plugin.onload();
+  });
+
+  test("adds a ribbon icon and Strava's sign-in return address", () => {
+    expect(plugin.addRibbonIcon).toHaveBeenCalledWith(
+      "activity",
+      "Import new activities",
+      expect.any(Function),
+    );
+    expect(plugin.registerObsidianProtocolHandler).toHaveBeenCalledWith(
+      "physical-activity-importer",
+      expect.any(Function),
+    );
+  });
+
+  test("puts notes in physical-activities by default", async () => {
+    await plugin.loadSettings();
+
+    expect(plugin.settings.sync.folder).toBe(
+      "physical-activities/{{start_date}}",
+    );
   });
 
   test("Import activities CSV", async () => {
@@ -393,19 +413,20 @@ describe("StravaSync", () => {
       await plugin.loadSettings();
 
       expect(secrets()).toEqual({
-        "strava-sync-client-secret": "client-secret",
-        "strava-sync-access-token": "access-token",
-        "strava-sync-refresh-token": "refresh-token",
-        "strava-sync-garmin-api-key": "garmin-key",
+        "physical-activity-importer-strava-client-secret": "client-secret",
+        "physical-activity-importer-strava-access-token": "access-token",
+        "physical-activity-importer-strava-refresh-token": "refresh-token",
+        "physical-activity-importer-garmin-api-key": "garmin-key",
       });
 
       // data.json is saved again without them
       expect(JSON.parse(JSON.stringify(savedAuthentication()))).toEqual({
         stravaClientId: "client-id",
         stravaClientSecret: "",
-        stravaClientSecretName: "strava-sync-client-secret",
+        stravaClientSecretName:
+          "physical-activity-importer-strava-client-secret",
         stravaTokenExpiresAt: 1234,
-        garminApiKeyName: "strava-sync-garmin-api-key",
+        garminApiKeyName: "physical-activity-importer-garmin-api-key",
       });
 
       // and the plugin carries on with them
@@ -420,8 +441,8 @@ describe("StravaSync", () => {
     test("loads secrets from secret storage", async () => {
       Object.assign(secrets(), {
         "my-strava-secret": "client-secret",
-        "strava-sync-access-token": "access-token",
-        "strava-sync-refresh-token": "refresh-token",
+        "physical-activity-importer-strava-access-token": "access-token",
+        "physical-activity-importer-strava-refresh-token": "refresh-token",
       });
       (plugin.loadData as jest.Mock).mockResolvedValueOnce({
         authentication: {
@@ -452,8 +473,12 @@ describe("StravaSync", () => {
 
       await plugin.saveSettings();
 
-      expect(secrets()["strava-sync-access-token"]).toBe("new-access-token");
-      expect(secrets()["strava-sync-refresh-token"]).toBe("new-refresh-token");
+      expect(secrets()["physical-activity-importer-strava-access-token"]).toBe(
+        "new-access-token",
+      );
+      expect(secrets()["physical-activity-importer-strava-refresh-token"]).toBe(
+        "new-refresh-token",
+      );
       expect(savedAuthentication().stravaAccessToken).toBeUndefined();
       expect(savedAuthentication().stravaRefreshToken).toBeUndefined();
       expect(savedAuthentication().stravaTokenExpiresAt).toBe(5678);
@@ -464,14 +489,18 @@ describe("StravaSync", () => {
     });
 
     test("blanks tokens that are gone", async () => {
-      secrets()["strava-sync-access-token"] = "old-token";
+      secrets()["physical-activity-importer-strava-access-token"] = "old-token";
       await plugin.loadSettings();
       plugin.settings.authentication.stravaAccessToken = undefined;
 
       await plugin.saveSettings();
 
-      expect(secrets()["strava-sync-access-token"]).toBe("");
-      expect(secrets()).not.toHaveProperty("strava-sync-refresh-token");
+      expect(secrets()["physical-activity-importer-strava-access-token"]).toBe(
+        "",
+      );
+      expect(secrets()).not.toHaveProperty(
+        "physical-activity-importer-strava-refresh-token",
+      );
     });
 
     test("uses the chosen Strava client secret", async () => {

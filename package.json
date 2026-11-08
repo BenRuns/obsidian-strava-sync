@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-strava-sync",
+  "name": "physical-activity-importer",
   "version": "1.1.0",
-  "description": "Sync Strava activities to Obsidian",
+  "description": "Import workouts from Garmin, Strava and FIT files into Obsidian",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -13,10 +13,13 @@
   },
   "keywords": [
     "obsidian",
-    "strava"
+    "garmin",
+    "strava",
+    "fit",
+    "workouts"
   ],
-  "author": "Howard Wilson",
-  "authorUrl": "https://github.com/watsonbox",
+  "author": "Benjamin Patterson",
+  "authorUrl": "https://github.com/BenRuns",
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "1.9.2",

@@ -32,7 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   sync: {
     source: "strava",
-    folder: "Strava/{{start_date}}",
+    folder: "physical-activities/{{start_date}}",
     folderDateFormat: "yyyy-MM-dd",
     filename: "{{id}} {{name}}",
     filenameDateFormat: "yyyy-MM-dd",

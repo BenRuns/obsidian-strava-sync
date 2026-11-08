@@ -1,10 +1,10 @@
-![GitHub manifest version](https://img.shields.io/github/manifest-json/v/watsonbox/obsidian-strava-sync)
- ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/watsonbox/obsidian-strava-sync/ci.yaml) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/watsonbox/obsidian-strava-sync/total)
+![GitHub manifest version](https://img.shields.io/github/manifest-json/v/BenRuns/obsidian-strava-sync)
+ ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/BenRuns/obsidian-strava-sync/ci.yaml)
 
 
-# Obsidian Strava Sync
+# Physical Activity Importer
 
-This plugin synchronizes activities from [Strava](https://www.strava.com/) or [Garmin Connect](https://connect.garmin.com/) into [Obsidian](https://obsidian.md).
+This plugin imports your workouts into [Obsidian](https://obsidian.md) as notes, one per activity, from [Garmin Connect](https://connect.garmin.com/), [Strava](https://www.strava.com/), or FIT files from your watch or bike computer.
 
 - 📅 Sync recent activities from **either** Strava, via the [Strava API](https://developers.strava.com/docs/reference/#api-Activities-getLoggedInAthleteActivities) (needs a paid Strava subscription), **or** Garmin, via the free [Garmin Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-api/)
 - ⌚ Import FIT files from Garmin, COROS, Wahoo, Polar, Suunto and other devices, one at a time or zipped
@@ -13,7 +13,9 @@ This plugin synchronizes activities from [Strava](https://www.strava.com/) or [G
 - 💿 Customizable properties / front matter allowing for [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/) integration
 - 🏃 Per-sport icons for use with [Iconize](https://florianwoelki.github.io/obsidian-iconize/)
 
-The purpose of this plugin is not to provide a data backup, or to replace the functionality of the Strava apps. It's simply to allow activities to be more easily referenced, tracked and visualized within Obsidian, especially through integration with existing plugins like [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/).
+The purpose of this plugin is not to provide a data backup, or to replace the functionality of the Garmin or Strava apps. It's simply to allow activities to be more easily referenced, tracked and visualized within Obsidian, especially through integration with existing plugins like [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/).
+
+It started as a fork of [Strava Sync](https://github.com/watsonbox/obsidian-strava-sync) by Howard Wilson, and is released under the same MIT license.
 
 ## Examples
 
@@ -27,24 +29,19 @@ These are some examples of what can be achieved along with the [Dataview](https:
 
 ## Installation
 
-1. Open Obsidian settings
-2. Go to Community plugins and turn off Restricted mode
-3. Under Community plugins, click "Browse" and search for "Strava Sync"
-4. Click Install, then Enable
-
-It's also possible to install an unreleased (beta) version using the [BRAT plugin](https://tfthacker.com/brat-quick-guide#Adding+a+beta+plugin):
+The plugin isn't in Obsidian's community plugin directory yet. Install it with the [BRAT plugin](https://tfthacker.com/brat-quick-guide#Adding+a+beta+plugin):
 
 1. Install BRAT from the Community plugins in Obsidian
 2. Open the command palette and run the command "BRAT: Add a beta plugin for testing"
-3. Paste `https://github.com/watsonbox/obsidian-strava-sync` into the modal that opens up
+3. Paste `https://github.com/BenRuns/obsidian-strava-sync` into the modal that opens up
 4. Click on Add Plugin 🎉
 
 ### Manually installing the plugin
 
 Alternatively you can install the plugin manually:
 
-1. Download the latest release from [the releases page](https://github.com/watsonbox/obsidian-strava-sync/releases).
-2. Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `VaultFolder/.obsidian/plugins/obsidian-strava-sync/` directory.
+1. Download the latest release from [the releases page](https://github.com/BenRuns/obsidian-strava-sync/releases).
+2. Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `VaultFolder/.obsidian/plugins/physical-activity-importer/` directory.
 
 ### Sync Configuration
 
@@ -63,6 +60,8 @@ Alternatively you can install the plugin manually:
 In order to configure the plugin, you will need to obtain an access token from Strava. You can do this by going to "My API Applications" [here](https://www.strava.com/settings/api) and creating a new application as follows:
 
 ![Strava Personal App](./assets/screenshot_strava_personal_app.png)
+
+Set "Authorization Callback Domain" to `physical-activity-importer` (the screenshot is from the original Strava Sync plugin, which used `strava-sync`).
 
 Once that's done, copy the Client ID into the plugin settings. For "Strava client secret", create a secret holding your Client Secret (or choose one you already have), then click the button next to "Authenticate with Strava". You will be redirected to Strava to login and authorize access. After successful authorization, you will be redirected back to your Obsidian vault and can close the browser window.
 
@@ -89,7 +88,7 @@ Typically, once the plugin is enabled and configured, you'll want to set up temp
 
 Templates can be set up in the plugin settings.
 
-The default file path template is `Strava/{{start_date}}/{{id}} {{name}}`, which will create a folder for each day, and a file for each activity within that folder for example `Strava/2024-02-20/1234567890 Running with the bears.md`.
+The default file path template is `physical-activities/{{start_date}}/{{id}} {{name}}`, which will create a folder for each day, and a file for each activity within that folder for example `physical-activities/2024-02-20/1234567890 Running with the bears.md`.
 
 The date formats themselves can also be adjusted in the plugin settings.
 
@@ -179,7 +178,7 @@ The property `id` is always added.
 
 ### Importing Recent Activities
 
-Next, either by clicking the Strava icon in the [ribbon](https://help.obsidian.md/User+interface/Ribbon) or using the command "Import new activities", the plugin will fetch and import your 30 most recent activities from the source chosen in settings (Strava or Garmin).
+Next, either by clicking the activity icon (a pulse line) in the [ribbon](https://help.obsidian.md/User+interface/Ribbon) or using the command "Import new activities", the plugin will fetch and import your 30 most recent activities from the source chosen in settings (Strava or Garmin).
 
 Each time new activities are imported, the start date of the last imported activity is saved, separately for each source. Next time you import new activities, only activities after that date will be imported. From Garmin, up to 500 activities are imported at a time, and if any fail to download they are tried again next time. From Strava, up to 90 are imported at a time, to stay under Strava's rate limit.
 
@@ -345,7 +344,7 @@ Not technically a Dataview integration. This example requires that the [Contribu
 
 ## Development Guidelines
 
-- Clone this repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/obsidian-strava-sync` folder.
+- Clone this repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/physical-activity-importer` folder.
 - Install NodeJS, then run `yarn install` in the command line under the repo folder.
 - Run `yarn dev` to compile the plugin to `main.js`. Changes should be automatically compiled into `main.js`.
 - Reload Obsidian to load the new version of the plugin.
@@ -373,4 +372,4 @@ Run `yarn version`, enter a new version number, then push to build and prepare a
 - [Challenges when Testing Plugins | Obsidian Collection](https://www.moritzjung.dev/obsidian-collection/plugin-dev/testing/challengeswhentestingplugins/)
 - [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/)
 
-![Powered by Strava](https://cdn.jsdelivr.net/gh/watsonbox/obsidian-strava-sync@latest/assets/api_logo_pwrdBy_strava_horiz_light.png)
+![Powered by Strava](./assets/api_logo_pwrdBy_strava_horiz_light.png)

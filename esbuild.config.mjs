@@ -56,7 +56,7 @@ const context = await esbuild.context({
   banner: {
     js: banner,
   },
-  entryPoints: ["src/StravaSync.ts"],
+  entryPoints: ["src/PhysicalActivityImporter.ts"],
   bundle: true,
   external: [
     "obsidian",

@@ -53,7 +53,7 @@ describe("StravaApi", () => {
     );
     expect(Object.fromEntries(url.searchParams)).toEqual({
       client_id: "client-id",
-      redirect_uri: "obsidian://strava-sync",
+      redirect_uri: "obsidian://physical-activity-importer",
       response_type: "code",
       scope: "read,activity:read_all",
       approval_prompt: "force",

@@ -1,4 +1,4 @@
-import { Notice, Plugin, addIcon, requireApiVersion } from "obsidian";
+import { Notice, Plugin, requireApiVersion } from "obsidian";
 import { ActivitiesCSVImporter, CSVImportError } from "./ActivitiesCSVImporter";
 import type { Activity } from "./Activity";
 import { ActivityImporter } from "./ActivityImporter";
@@ -13,17 +13,23 @@ import { DEFAULT_SETTINGS, type Settings } from "./Settings";
 import { SettingsTab } from "./SettingsTab";
 import { StravaApi } from "./StravaApi";
 
-const ICON_ID = "strava";
+// Lucide icon for the ribbon: https://lucide.dev/icons/activity
+const RIBBON_ICON = "activity";
+// obsidian://physical-activity-importer, where Strava returns after sign-in
+export const PROTOCOL_ACTION = "physical-activity-importer";
 const SUCCESS_NOTICE_DURATION = 4000;
 const ERROR_NOTICE_DURATION = 8000;
 // Obsidian's secret storage (1.11.4+): Strava's sign-in tokens are kept under
 // these names, and secrets moved out of data.json get the others.
-const STRAVA_ACCESS_TOKEN_SECRET = "strava-sync-access-token";
-const STRAVA_REFRESH_TOKEN_SECRET = "strava-sync-refresh-token";
-const STRAVA_CLIENT_SECRET_SECRET = "strava-sync-client-secret";
-const GARMIN_API_KEY_SECRET = "strava-sync-garmin-api-key";
+const STRAVA_ACCESS_TOKEN_SECRET =
+  "physical-activity-importer-strava-access-token";
+const STRAVA_REFRESH_TOKEN_SECRET =
+  "physical-activity-importer-strava-refresh-token";
+const STRAVA_CLIENT_SECRET_SECRET =
+  "physical-activity-importer-strava-client-secret";
+const GARMIN_API_KEY_SECRET = "physical-activity-importer-garmin-api-key";
 
-export default class StravaSync extends Plugin {
+export default class PhysicalActivityImporter extends Plugin {
   settings: Settings;
   settingsTab: SettingsTab;
   stravaApi: StravaApi;
@@ -43,16 +49,11 @@ export default class StravaSync extends Plugin {
     this.fitFileSelector = new FileSelector(".fit,.zip");
     this.activitySerializer = new ActivitySerializer(this.app, this.settings);
 
-    addIcon(
-      ICON_ID,
-      `<svg fill="currentColor" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>`,
-    );
-
-    this.addRibbonIcon(ICON_ID, "Import new activities", () => {
+    this.addRibbonIcon(RIBBON_ICON, "Import new activities", () => {
       void this.importNewActivities();
     });
 
-    this.registerObsidianProtocolHandler("strava-sync", async (args) => {
+    this.registerObsidianProtocolHandler(PROTOCOL_ACTION, async (args) => {
       this.loadStravaClientSecret();
       await this.stravaApi.exchangeCodeForToken(args.code);
       this.settings.authentication = this.stravaApi.settings;

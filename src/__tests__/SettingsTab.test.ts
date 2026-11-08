@@ -5,9 +5,9 @@ import {
   Setting,
   requireApiVersion,
 } from "obsidian";
+import type PhysicalActivityImporter from "../PhysicalActivityImporter";
 import { DEFAULT_SETTINGS, type Settings } from "../Settings";
 import { SettingsTab } from "../SettingsTab";
-import type StravaSync from "../StravaSync";
 
 jest.mock("obsidian");
 
@@ -59,7 +59,7 @@ const descText = (desc: unknown) =>
 
 describe("SettingsTab", () => {
   let settings: Settings;
-  let plugin: StravaSync;
+  let plugin: PhysicalActivityImporter;
   let settingsTab: SettingsTab;
   let windowOpen: jest.Mock;
 
@@ -78,7 +78,7 @@ describe("SettingsTab", () => {
       stravaApi: {
         buildAuthorizeUrl: () => "https://www.strava.com/oauth/authorize",
       },
-    } as unknown as StravaSync;
+    } as unknown as PhysicalActivityImporter;
     settingsTab = new SettingsTab(new App(), plugin);
     windowOpen = jest.fn();
     globals.window = { open: windowOpen };
@@ -363,6 +363,22 @@ describe("SettingsTab", () => {
       expect(groupVisible("Garmin")).toBe(true);
     });
 
+    it("shows the Powered by Strava logo only for Strava", () => {
+      const logoVisible = () => {
+        const group = definitions().at(-1);
+        return group &&
+          "visible" in group &&
+          typeof group.visible === "function"
+          ? group.visible()
+          : undefined;
+      };
+
+      expect(logoVisible()).toBe(true);
+
+      settings.sync.source = "garmin";
+      expect(logoVisible()).toBe(false);
+    });
+
     it("saves a new source and refreshes the tab", () => {
       const [dropdown] = renderRow("Import new activities from").components;
 
@@ -443,6 +459,16 @@ describe("SettingsTab", () => {
       expect(settings.authentication.stravaClientSecret).toBe("shh");
       expect(plugin.saveSettings).toHaveBeenCalled();
     });
+  });
+
+  it("shows Strava's Connect with Strava button", () => {
+    const setting = renderRow("Authenticate with Strava") as unknown as {
+      classes: string[];
+    };
+
+    expect(setting.classes).toEqual([
+      "physical-activity-importer-strava-connect",
+    ]);
   });
 
   it("shows the Powered by Strava logo", () => {
