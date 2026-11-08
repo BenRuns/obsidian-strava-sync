@@ -1,5 +1,5 @@
-![GitHub manifest version](https://img.shields.io/github/manifest-json/v/BenRuns/obsidian-strava-sync)
- ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/BenRuns/obsidian-strava-sync/ci.yaml)
+![GitHub manifest version](https://img.shields.io/github/manifest-json/v/BenRuns/physical-activity-importer)
+ ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/BenRuns/physical-activity-importer/ci.yaml)
 
 
 # Physical Activity Importer
@@ -33,14 +33,14 @@ The plugin isn't in Obsidian's community plugin directory yet. Install it with t
 
 1. Install BRAT from the Community plugins in Obsidian
 2. Open the command palette and run the command "BRAT: Add a beta plugin for testing"
-3. Paste `https://github.com/BenRuns/obsidian-strava-sync` into the modal that opens up
+3. Paste `https://github.com/BenRuns/physical-activity-importer` into the modal that opens up
 4. Click on Add Plugin 🎉
 
 ### Manually installing the plugin
 
 Alternatively you can install the plugin manually:
 
-1. Download the latest release from [the releases page](https://github.com/BenRuns/obsidian-strava-sync/releases).
+1. Download the latest release from [the releases page](https://github.com/BenRuns/physical-activity-importer/releases).
 2. Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `VaultFolder/.obsidian/plugins/physical-activity-importer/` directory.
 
 ### Sync Configuration

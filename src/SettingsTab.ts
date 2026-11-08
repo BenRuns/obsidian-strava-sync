@@ -17,7 +17,7 @@ import {
 const LUXON_FORMAT_URL =
   "https://moment.github.io/luxon/#/formatting?id=table-of-tokens";
 const SYNC_CONFIGURATION_URL =
-  "https://github.com/BenRuns/obsidian-strava-sync?tab=readme-ov-file#sync-configuration";
+  "https://github.com/BenRuns/physical-activity-importer?tab=readme-ov-file#sync-configuration";
 const GARMIN_PERSONAL_API_URL =
   "https://developer.garmin.com/gc-developer-program/personal/personal-api/";
 
@@ -435,7 +435,7 @@ export class SettingsTab extends PluginSettingTab {
                 fragment.createEl("br"),
                 fragment.createEl("a", {
                   text: "More information",
-                  href: "https://github.com/BenRuns/obsidian-strava-sync?tab=readme-ov-file#content",
+                  href: "https://github.com/BenRuns/physical-activity-importer?tab=readme-ov-file#content",
                 }),
               );
             }),
