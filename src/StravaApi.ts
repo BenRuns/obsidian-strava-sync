@@ -28,7 +28,7 @@ export interface StravaActivity {
 
 export class StravaApi {
   private readonly SCOPES = "read,activity:read_all";
-  private readonly REDIRECT_URI = "obsidian://strava-sync";
+  private readonly REDIRECT_URI = "obsidian://physical-activity-importer";
 
   settings: AuthenticationSettings;
 
@@ -115,9 +115,11 @@ export class StravaApi {
     this.settings.stravaTokenExpiresAt = response.expires_at;
   }
 
-  async listActivities(params: { per_page: number; after?: number }): Promise<
-    StravaActivity[]
-  > {
+  async listActivities(params: {
+    per_page: number;
+    after?: number;
+    page?: number;
+  }): Promise<StravaActivity[]> {
     await this.refreshTokenIfExpired();
     const queryParams = new URLSearchParams(
       Object.entries(params).map(([key, value]) => [key, String(value)]),

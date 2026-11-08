@@ -4,6 +4,26 @@ import { stringifyYaml } from "obsidian";
 import type { Activity } from "./Activity";
 
 export const DEFAULT_TEMPLATE = `# {{name}}
+{{#if url}}
+
+[{{url}}]({{url}})
+{{/if}}
+{{#if description}}
+
+Description: {{description}}
+{{/if}}
+{{#if private_note}}
+
+> [!NOTE] Private note
+> {{private_note}}
+{{/if}}
+
+#{{source}}
+`;
+
+// The default template before activities came from more than Strava.
+// Settings still holding it are moved to DEFAULT_TEMPLATE.
+export const LEGACY_DEFAULT_TEMPLATE = `# {{name}}
 
 [https://www.strava.com/activities/{{id}}](https://www.strava.com/activities/{{id}})
 {{#if description}}
@@ -42,6 +62,7 @@ export class ActivityRenderer {
     const bodyContent = Handlebars.compile(this.template)({
       ...activity,
       start_date: start_date,
+      source: activity.source ?? "Strava",
       icon: this.getActivityIcon(activity.sport_type),
     });
 

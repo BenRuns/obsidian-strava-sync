@@ -4,6 +4,9 @@ import type { StravaActivity, StravaApi } from "./StravaApi";
 // The default “non-upload” rate limit allows 100 requests every 15 minutes, with up to 1,000 requests per day.
 export class ActivityImporter {
   private readonly PER_PAGE = 30; // Strava API default
+  // Up to 3 pages of activities since the last import: with one request per
+  // activity, that stays under the limit of 100 requests every 15 minutes.
+  private readonly MAX_PAGES = 3;
 
   private stravaApi: StravaApi;
   private lastActivityTimestamp?: number;
@@ -25,7 +28,19 @@ export class ActivityImporter {
         params.after = this.lastActivityTimestamp;
       }
 
-      const activities = await this.stravaApi.listActivities(params);
+      // With no last import, only the latest page
+      const maxPages = params.after ? this.MAX_PAGES : 1;
+      const activities: StravaActivity[] = [];
+      for (let page = 1; page <= maxPages; page++) {
+        const results = await this.stravaApi.listActivities({
+          ...params,
+          page,
+        });
+        activities.push(...results);
+        if (results.length < this.PER_PAGE) {
+          break;
+        }
+      }
 
       const detailedActivities = await Promise.all(
         activities.map(async (activity) => {
@@ -63,6 +78,8 @@ export class ActivityImporter {
       elev_low: stravaActivity.elev_low || 0,
       elev_high: stravaActivity.elev_high || 0,
       calories: stravaActivity.calories || 0,
+      url: `https://www.strava.com/activities/${stravaActivity.id}`,
+      source: "Strava",
     };
   }
 }

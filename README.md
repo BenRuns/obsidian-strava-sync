@@ -1,18 +1,21 @@
-![GitHub manifest version](https://img.shields.io/github/manifest-json/v/watsonbox/obsidian-strava-sync)
- ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/watsonbox/obsidian-strava-sync/ci.yaml) ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/watsonbox/obsidian-strava-sync/total)
+![GitHub manifest version](https://img.shields.io/github/manifest-json/v/BenRuns/physical-activity-importer)
+ ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/BenRuns/physical-activity-importer/ci.yaml)
 
 
-# Obsidian Strava Sync
+# Physical Activity Importer
 
-This plugin synchronizes activities from [Strava](https://www.strava.com/) into [Obsidian](https://obsidian.md).
+This plugin imports your workouts into [Obsidian](https://obsidian.md) as notes, one per activity, from [Garmin Connect](https://connect.garmin.com/), [Strava](https://www.strava.com/), or FIT files from your watch or bike computer.
 
+- 📅 Sync recent activities from **either** Strava, via the [Strava API](https://developers.strava.com/docs/reference/#api-Activities-getLoggedInAthleteActivities) (needs a paid Strava subscription), **or** Garmin, via the free [Garmin Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-api/)
+- ⌚ Import FIT files from Garmin, COROS, Wahoo, Polar, Suunto and other devices, one at a time or zipped
 - 🗄️ Import [Strava bulk export](https://support.strava.com/hc/en-us/articles/216918437-Exporting-your-Data-and-Bulk-Export#h_01GG58HC4F1BGQ9PQZZVANN6WF) CSV files for historical activities
-- 📅 Sync recent activities from Strava via the [Strava API](https://developers.strava.com/docs/reference/#api-Activities-getLoggedInAthleteActivities)
 - 📝 [Handlebars.js](https://handlebarsjs.com/guide/) templates for imported activities
 - 💿 Customizable properties / front matter allowing for [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/) integration
 - 🏃 Per-sport icons for use with [Iconize](https://florianwoelki.github.io/obsidian-iconize/)
 
-The purpose of this plugin is not to provide a data backup, or to replace the functionality of the Strava apps. It's simply to allow activities to be more easily referenced, tracked and visualized within Obsidian, especially through integration with existing plugins like [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/).
+The purpose of this plugin is not to provide a data backup, or to replace the functionality of the Garmin or Strava apps. It's simply to allow activities to be more easily referenced, tracked and visualized within Obsidian, especially through integration with existing plugins like [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/).
+
+It started as a fork of [Strava Sync](https://github.com/watsonbox/obsidian-strava-sync) by Howard Wilson, and is released under the same MIT license.
 
 ## Examples
 
@@ -26,32 +29,56 @@ These are some examples of what can be achieved along with the [Dataview](https:
 
 ## Installation
 
-1. Open Obsidian settings
-2. Go to Community plugins and turn off Restricted mode
-3. Under Community plugins, click "Browse" and search for "Strava Sync"
-4. Click Install, then Enable
-
-It's also possible to install an unreleased (beta) version using the [BRAT plugin](https://tfthacker.com/brat-quick-guide#Adding+a+beta+plugin):
+The plugin isn't in Obsidian's community plugin directory yet. Install it with the [BRAT plugin](https://tfthacker.com/brat-quick-guide#Adding+a+beta+plugin):
 
 1. Install BRAT from the Community plugins in Obsidian
 2. Open the command palette and run the command "BRAT: Add a beta plugin for testing"
-3. Paste `https://github.com/watsonbox/obsidian-strava-sync` into the modal that opens up
+3. Paste `https://github.com/BenRuns/physical-activity-importer` into the modal that opens up
 4. Click on Add Plugin 🎉
 
 ### Manually installing the plugin
 
 Alternatively you can install the plugin manually:
 
-1. Download the latest release from [the releases page](https://github.com/watsonbox/obsidian-strava-sync/releases).
-2. Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `VaultFolder/.obsidian/plugins/obsidian-strava-sync/` directory.
+1. Download the latest release from [the releases page](https://github.com/BenRuns/physical-activity-importer/releases).
+2. Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `VaultFolder/.obsidian/plugins/physical-activity-importer/` directory.
 
 ### Sync Configuration
+
+"Import new activities" syncs from one source at a time, **Strava or Garmin**, chosen under "Activity source" in the plugin settings. Importing FIT files or a Strava bulk export works whichever source you choose.
+
+| Source | Cost | What you need |
+|--------|------|---------------|
+| Strava | Paid Strava subscription | A Strava API application |
+| Garmin | Free | A Garmin Personal API key |
+
+#### Strava
+
+> [!IMPORTANT]
+> Since June 2026, Strava requires an active Strava subscription to create or keep using an API application. There is no separate fee for the API itself. Without a subscription, use Garmin, FIT files, or a Strava bulk export instead.
 
 In order to configure the plugin, you will need to obtain an access token from Strava. You can do this by going to "My API Applications" [here](https://www.strava.com/settings/api) and creating a new application as follows:
 
 ![Strava Personal App](./assets/screenshot_strava_personal_app.png)
 
-Once that's done, copy the Client ID and Client Secret into the plugin settings, and click "Connect with Strava". You will be redirected to Strava to login and authorize access. After successful authorization, you will be redirected back to your Obsidian vault and can close the browser window.
+Set "Authorization Callback Domain" to `physical-activity-importer` (the screenshot is from the original Strava Sync plugin, which used `strava-sync`).
+
+Once that's done, copy the Client ID into the plugin settings. For "Strava client secret", create a secret holding your Client Secret (or choose one you already have), then click the button next to "Authenticate with Strava". You will be redirected to Strava to login and authorize access. After successful authorization, you will be redirected back to your Obsidian vault and can close the browser window.
+
+#### Secrets
+
+On Obsidian 1.11.4 and later, the Strava client secret, the Garmin API key and Strava's sign-in tokens are kept in Obsidian's [secret storage](https://docs.obsidian.md/plugins/guides/secret-storage), not in the plugin's `data.json`. You choose the client secret and Garmin key by name, so one secret can be shared with other plugins and managed in one place. Secrets saved in `data.json` by earlier versions are moved there automatically.
+
+Secret storage is kept on each device and isn't synced with your vault, so on each device you'll need to set up the secrets and authenticate with Strava again. On older Obsidian versions, secrets are saved in `data.json` as before.
+
+#### Garmin
+
+Garmin's [Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-api/) gives you read-only access to your own Garmin Connect data, for free.
+
+1. In Garmin Connect, create a Personal API key ([Garmin's guide](https://developer.garmin.com/gc-developer-program/personal/personal-api/)). It's only shown once, and expires after the period you choose (30 to 365 days).
+2. In the plugin settings, set "Import new activities from" to Garmin. For "Garmin API key", create a secret holding your key (or choose one you already have, for example one another Garmin plugin uses).
+
+Each activity is imported from its original FIT file, so Garmin activities have the same fields as imported FIT files, plus the name, description and link from Garmin Connect.
 
 ## Basic Usage
 
@@ -61,7 +88,7 @@ Typically, once the plugin is enabled and configured, you'll want to set up temp
 
 Templates can be set up in the plugin settings.
 
-The default file path template is `Strava/{{start_date}}/{{id}} {{name}}`, which will create a folder for each day, and a file for each activity within that folder for example `Strava/2024-02-20/1234567890 Running with the bears.md`.
+The default file path template is `physical-activities/{{start_date}}/{{id}} {{name}}`, which will create a folder for each day, and a file for each activity within that folder for example `physical-activities/2024-02-20/1234567890 Running with the bears.md`.
 
 The date formats themselves can also be adjusted in the plugin settings.
 
@@ -74,8 +101,10 @@ The default content template is:
 
 ```markdown
 # {{name}}
+{{#if url}}
 
-[https://www.strava.com/activities/{{id}}](https://www.strava.com/activities/{{id}})
+[{{url}}]({{url}})
+{{/if}}
 {{#if description}}
 
 Description: {{description}}
@@ -86,7 +115,7 @@ Description: {{description}}
 > {{private_note}}
 {{/if}}
 
-#Strava
+#{{source}}
 ```
 
 This will produce a file similar to the following:
@@ -122,6 +151,8 @@ The templating language used is [Handlebars.js](https://handlebarsjs.com/guide/)
 | `elev_low`            | 50.7                              | Lowest elevation in meters                 |
 | `elev_high`           | 60.2                              | Highest elevation in meters                |
 | `calories`            | 1234                              | Calories burned                            |
+| `url`                 | "https://www.strava.com/activities/1218940553" | Link to the activity on Strava or Garmin Connect (none for FIT files) |
+| `source`              | "Strava", "Garmin", "FIT"         | Where the activity was imported from       |
 | `icon`                | 🚴‍♂️🏃🏊⛷️🏸🛶🏋️🚶🚵⛳🦽🥾<br>⛸️🛼🏄🏓🧘🧗🚣⛵🛹🏂⚽🎾 | Activity icon         |
 
 #### Properties
@@ -147,9 +178,27 @@ The property `id` is always added.
 
 ### Importing Recent Activities
 
-Next, either by clicking the Strava icon in the [ribbon](https://help.obsidian.md/User+interface/Ribbon) or using the command "Import new activities from Strava", the plugin will fetch and import your 30 most recent activities from Strava using the API.
+Next, either by clicking the activity icon (a pulse line) in the [ribbon](https://help.obsidian.md/User+interface/Ribbon) or using the command "Import new activities", the plugin will fetch and import your 30 most recent activities from the source chosen in settings (Strava or Garmin).
 
-Each time new activities are imported, the start date of the last imported activity is saved. Next time you import new activities, only activities after that date will be imported.
+Each time new activities are imported, the start date of the last imported activity is saved, separately for each source. Next time you import new activities, only activities after that date will be imported. From Garmin, up to 500 activities are imported at a time, and if any fail to download they are tried again next time. From Strava, up to 90 are imported at a time, to stay under Strava's rate limit.
+
+An activity whose note already exists is skipped: its note is never overwritten. The note's path comes from the folder and filename settings, so if you rename an activity, or change those settings, it's imported again as a new note.
+
+### Re-importing Activities
+
+To import activities again, for example after deleting some notes, use the "Re-import activities since a date" command or the "Re-import activities" button in settings, and choose a date. Activities from that date on are fetched again from the source chosen in settings, and notes are created for any that are missing. Existing notes aren't changed, and the next "Import new activities" carries on from where it was.
+
+### Importing FIT Files
+
+FIT is the activity file format used by Garmin, COROS, Wahoo, Polar, Suunto and most other devices. Either in the plugin settings, or with the command "Import activities from FIT files", select one or more `.fit` files, or `.zip` files containing them, to import. For example:
+
+- **Garmin Connect:** open an activity, then ⚙️ → "Export Original"
+- **COROS:** in the app, open an activity, then ⋯ → "Export Data" → .FIT; or export from [Training Hub](https://t.coros.com/)
+
+FIT files don't have names, so activities are named the way Strava does, such as "Morning Trail Run". Their `id` is their start time (in seconds), so importing the same file twice is skipped.
+
+> [!NOTE]
+> The same activity imported from both Strava and Garmin (or a FIT file) will create two notes, because Strava's activity IDs differ from the start-time IDs used for FIT files and Garmin.
 
 ### Importing a Strava Bulk Export
 
@@ -295,7 +344,7 @@ Not technically a Dataview integration. This example requires that the [Contribu
 
 ## Development Guidelines
 
-- Clone this repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/obsidian-strava-sync` folder.
+- Clone this repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/physical-activity-importer` folder.
 - Install NodeJS, then run `yarn install` in the command line under the repo folder.
 - Run `yarn dev` to compile the plugin to `main.js`. Changes should be automatically compiled into `main.js`.
 - Reload Obsidian to load the new version of the plugin.
@@ -323,4 +372,4 @@ Run `yarn version`, enter a new version number, then push to build and prepare a
 - [Challenges when Testing Plugins | Obsidian Collection](https://www.moritzjung.dev/obsidian-collection/plugin-dev/testing/challengeswhentestingplugins/)
 - [Obsidian Dataview](https://blacksmithgu.github.io/obsidian-dataview/)
 
-![Powered by Strava](https://cdn.jsdelivr.net/gh/watsonbox/obsidian-strava-sync@latest/assets/api_logo_pwrdBy_strava_horiz_light.png)
+![Powered by Strava](./assets/api_logo_pwrdBy_strava_horiz_light.png)

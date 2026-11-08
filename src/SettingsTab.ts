@@ -2,17 +2,24 @@ import {
   type App,
   Notice,
   PluginSettingTab,
+  SecretComponent,
   Setting,
   type SettingDefinitionItem,
   requireApiVersion,
 } from "obsidian";
-import { DEFAULT_SETTINGS, VALID_FRONT_MATTER_PROPERTIES } from "./Settings";
-import type StravaSync from "./StravaSync";
+import type PhysicalActivityImporter from "./PhysicalActivityImporter";
+import {
+  type ActivitySource,
+  DEFAULT_SETTINGS,
+  VALID_FRONT_MATTER_PROPERTIES,
+} from "./Settings";
 
 const LUXON_FORMAT_URL =
   "https://moment.github.io/luxon/#/formatting?id=table-of-tokens";
 const SYNC_CONFIGURATION_URL =
-  "https://github.com/watsonbox/obsidian-strava-sync?tab=readme-ov-file#sync-configuration";
+  "https://github.com/BenRuns/physical-activity-importer?tab=readme-ov-file#sync-configuration";
+const GARMIN_PERSONAL_API_URL =
+  "https://developer.garmin.com/gc-developer-program/personal/personal-api/";
 
 // One list of settings, rendered two ways: as declarative definitions on
 // Obsidian 1.13+ (getSettingDefinitions, which also puts them in Obsidian's
@@ -26,6 +33,7 @@ interface SettingRow {
 
 interface SettingSection {
   heading?: string;
+  visible?: () => boolean;
   rows: SettingRow[];
 }
 
@@ -45,18 +53,19 @@ const linkedDesc = (
   });
 
 export class SettingsTab extends PluginSettingTab {
-  plugin: StravaSync;
+  plugin: PhysicalActivityImporter;
 
-  constructor(app: App, plugin: StravaSync) {
+  constructor(app: App, plugin: PhysicalActivityImporter) {
     super(app, plugin);
     this.plugin = plugin;
   }
 
   // Obsidian 1.13+ renders these, and skips display().
   getSettingDefinitions(): SettingDefinitionItem[] {
-    return this.sections().map(({ heading, rows }) => ({
+    return this.sections().map(({ heading, visible, rows }) => ({
       type: "group" as const,
       heading,
+      visible,
       items: rows.map(({ name, desc, searchable, render }) => ({
         name,
         desc,
@@ -78,7 +87,10 @@ export class SettingsTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    for (const { heading, rows } of this.sections()) {
+    for (const { heading, visible, rows } of this.sections()) {
+      if (visible && !visible()) {
+        continue;
+      }
       if (heading) {
         new Setting(containerEl).setName(heading).setHeading();
       }
@@ -117,10 +129,69 @@ export class SettingsTab extends PluginSettingTab {
   private sections(): SettingSection[] {
     const settings = this.plugin.settings;
     const save = () => void this.plugin.saveSettings();
+    const usesSource = (source: ActivitySource) => () =>
+      settings.sync.source === source;
 
     return [
       {
-        heading: "Authentication",
+        heading: "Activity source",
+        rows: [
+          {
+            name: "Import new activities from",
+            desc: "Strava or Garmin, one at a time. Strava's API needs a paid Strava subscription (since June 2026); Garmin's Personal API is free. Importing a Strava bulk export or FIT files works with either.",
+            render: (setting) =>
+              setting.addDropdown((dropdown) =>
+                dropdown
+                  .addOption("strava", "Strava (needs a Strava subscription)")
+                  .addOption("garmin", "Garmin")
+                  .setValue(settings.sync.source)
+                  .onChange((value) => {
+                    settings.sync.source = value as ActivitySource;
+                    save();
+                    this.refresh();
+                  }),
+              ),
+          },
+        ],
+      },
+      {
+        heading: "Garmin",
+        visible: usesSource("garmin"),
+        rows: [
+          {
+            name: "Garmin API key",
+            desc: linkedDesc(
+              "Create a Personal API key in Garmin Connect (",
+              "Garmin's guide",
+              GARMIN_PERSONAL_API_URL,
+              "), then choose the secret holding it, or create one. Keys expire after 30 to 365 days, depending on what you choose.",
+            ),
+            // Obsidian's secret storage where it has one: this saves only
+            // the secret's name. Before 1.11.4, the key itself.
+            render: (setting) =>
+              requireApiVersion("1.11.4")
+                ? setting.addComponent((el) =>
+                    new SecretComponent(this.app, el)
+                      .setValue(settings.authentication.garminApiKeyName ?? "")
+                      .onChange((name) => {
+                        void this.plugin.setGarminApiKeyName(name);
+                      }),
+                  )
+                : setting.addText((text) => {
+                    text
+                      .setPlaceholder("Paste your API key")
+                      .setValue(this.plugin.getGarminApiKey() ?? "")
+                      .onChange((value) => {
+                        void this.plugin.setGarminApiKey(value);
+                      });
+                    text.inputEl.type = "password";
+                  }),
+          },
+        ],
+      },
+      {
+        heading: "Strava",
+        visible: usesSource("strava"),
         rows: [
           {
             name: "Strava client ID",
@@ -144,26 +215,39 @@ export class SettingsTab extends PluginSettingTab {
           {
             name: "Strava client secret",
             desc: linkedDesc(
-              "Enter your Strava API client secret (",
+              "Choose the secret holding your Strava API client secret, or create one (",
               "instructions",
               SYNC_CONFIGURATION_URL,
               ")",
             ),
             render: (setting) =>
-              setting.addText((text) =>
-                text
-                  .setPlaceholder("Enter client secret")
-                  .setValue(settings.authentication.stravaClientSecret)
-                  .onChange((value) => {
-                    settings.authentication.stravaClientSecret = value;
-                    save();
+              requireApiVersion("1.11.4")
+                ? setting.addComponent((el) =>
+                    new SecretComponent(this.app, el)
+                      .setValue(
+                        settings.authentication.stravaClientSecretName ?? "",
+                      )
+                      .onChange((name) => {
+                        void this.plugin.setStravaClientSecretName(name);
+                      }),
+                  )
+                : setting.addText((text) => {
+                    text
+                      .setPlaceholder("Enter client secret")
+                      .setValue(settings.authentication.stravaClientSecret)
+                      .onChange((value) => {
+                        settings.authentication.stravaClientSecret = value;
+                        save();
+                      });
+                    text.inputEl.type = "password";
                   }),
-              ),
           },
           {
             name: "Authenticate with Strava",
             desc: "Click to start the OAuth flow with Strava",
             render: (setting) => {
+              // Shows the button as Strava's "Connect with Strava" image
+              setting.setClass("physical-activity-importer-strava-connect");
               if (settings.authentication.stravaAccessToken) {
                 setting.controlEl.createDiv({ text: "✅" });
               }
@@ -260,6 +344,16 @@ export class SettingsTab extends PluginSettingTab {
               ),
           },
           {
+            name: "Re-import activities",
+            desc: "Fetch activities from a date you choose again, from the source above, and create notes for any that are missing. Existing notes aren't changed.",
+            render: (setting) =>
+              setting.addButton((button) =>
+                button
+                  .setButtonText("Re-import…")
+                  .onClick(() => this.plugin.openReimportModal()),
+              ),
+          },
+          {
             name: "Import Strava bulk export",
             desc: linkedDesc(
               "Import activities.csv from a Strava bulk export CSV file following ",
@@ -273,6 +367,16 @@ export class SettingsTab extends PluginSettingTab {
                   .setButtonText("Import CSV")
                   .setCta()
                   .onClick(() => void this.importCSV()),
+              ),
+          },
+          {
+            name: "Import FIT files",
+            desc: "Import activity files exported from Garmin, COROS, Wahoo, Polar, Suunto and other devices. Select one or more .fit files.",
+            render: (setting) =>
+              setting.addButton((button) =>
+                button
+                  .setButtonText("Import FIT")
+                  .onClick(() => void this.plugin.importActivitiesFromFIT()),
               ),
           },
         ],
@@ -331,7 +435,7 @@ export class SettingsTab extends PluginSettingTab {
                 fragment.createEl("br"),
                 fragment.createEl("a", {
                   text: "More information",
-                  href: "https://github.com/watsonbox/obsidian-strava-sync?tab=readme-ov-file#content",
+                  href: "https://github.com/BenRuns/physical-activity-importer?tab=readme-ov-file#content",
                 }),
               );
             }),
@@ -367,6 +471,8 @@ export class SettingsTab extends PluginSettingTab {
         ],
       },
       {
+        // Strava's brand guidelines ask for this wherever Strava data is used
+        visible: usesSource("strava"),
         rows: [
           {
             name: "Powered by Strava",

@@ -57,7 +57,11 @@ describe("ActivityImporter", () => {
     const activities = await activityImporter.importLatestActivities();
 
     expect(mockStravaApi.refreshTokenIfExpired).toHaveBeenCalled();
-    expect(mockStravaApi.listActivities).toHaveBeenCalledWith({ per_page: 30 });
+    expect(mockStravaApi.listActivities).toHaveBeenCalledTimes(1);
+    expect(mockStravaApi.listActivities).toHaveBeenCalledWith({
+      per_page: 30,
+      page: 1,
+    });
     expect(mockStravaApi.getActivity).toHaveBeenCalledTimes(3);
 
     expect(activities).toHaveLength(3);
@@ -86,6 +90,45 @@ describe("ActivityImporter", () => {
       start_date: new Date("2024-09-09T10:23:12Z"),
       elapsed_time: 1697,
       distance: 1000.0,
+    });
+  });
+
+  describe("since the last import", () => {
+    const page = (count: number) =>
+      Array.from({ length: count }, (_, i) => ({ id: i + 1 }));
+
+    beforeEach(() => {
+      (mockStravaApi.getActivity as jest.Mock).mockImplementation((id) =>
+        Promise.resolve({ id, start_date: "2026-10-25T07:30:00Z" }),
+      );
+      activityImporter = new ActivityImporter(mockStravaApi, 1234);
+    });
+
+    it("pages through new activities", async () => {
+      (mockStravaApi.listActivities as jest.Mock)
+        .mockResolvedValueOnce(page(30))
+        .mockResolvedValueOnce(page(5));
+
+      const activities = await activityImporter.importLatestActivities();
+
+      expect(
+        (mockStravaApi.listActivities as jest.Mock).mock.calls.map(
+          ([params]) => params,
+        ),
+      ).toEqual([
+        { per_page: 30, after: 1234, page: 1 },
+        { per_page: 30, after: 1234, page: 2 },
+      ]);
+      expect(activities).toHaveLength(35);
+    });
+
+    it("stops after 3 pages, to stay under Strava's rate limit", async () => {
+      (mockStravaApi.listActivities as jest.Mock).mockResolvedValue(page(30));
+
+      const activities = await activityImporter.importLatestActivities();
+
+      expect(mockStravaApi.listActivities).toHaveBeenCalledTimes(3);
+      expect(activities).toHaveLength(90);
     });
   });
 });

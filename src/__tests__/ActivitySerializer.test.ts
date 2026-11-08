@@ -27,6 +27,7 @@ describe("ActivitySerializer", () => {
         stravaTokenExpiresAt: undefined,
       },
       sync: {
+        source: "strava",
         folder: "Strava/{{start_date}}",
         folderDateFormat: "yyyy-MM-dd",
         filename: "{{id}} {{name}}",

@@ -1,7 +1,13 @@
-import { App, Notice, Setting, requireApiVersion } from "obsidian";
+import {
+  App,
+  Notice,
+  SecretComponent,
+  Setting,
+  requireApiVersion,
+} from "obsidian";
+import type PhysicalActivityImporter from "../PhysicalActivityImporter";
 import { DEFAULT_SETTINGS, type Settings } from "../Settings";
 import { SettingsTab } from "../SettingsTab";
-import type StravaSync from "../StravaSync";
 
 jest.mock("obsidian");
 
@@ -53,7 +59,7 @@ const descText = (desc: unknown) =>
 
 describe("SettingsTab", () => {
   let settings: Settings;
-  let plugin: StravaSync;
+  let plugin: PhysicalActivityImporter;
   let settingsTab: SettingsTab;
   let windowOpen: jest.Mock;
 
@@ -64,10 +70,15 @@ describe("SettingsTab", () => {
       settings,
       saveSettings: jest.fn().mockResolvedValue(undefined),
       importActivitiesFromCSV: jest.fn().mockResolvedValue(undefined),
+      getGarminApiKey: jest.fn().mockReturnValue(null),
+      setGarminApiKey: jest.fn().mockResolvedValue(undefined),
+      setGarminApiKeyName: jest.fn().mockResolvedValue(undefined),
+      setStravaClientSecretName: jest.fn().mockResolvedValue(undefined),
+      openReimportModal: jest.fn(),
       stravaApi: {
         buildAuthorizeUrl: () => "https://www.strava.com/oauth/authorize",
       },
-    } as unknown as StravaSync;
+    } as unknown as PhysicalActivityImporter;
     settingsTab = new SettingsTab(new App(), plugin);
     windowOpen = jest.fn();
     globals.window = { open: windowOpen };
@@ -106,8 +117,10 @@ describe("SettingsTab", () => {
     }));
 
     expect(groups).toEqual([
+      { heading: "Activity source", items: ["Import new activities from"] },
+      { heading: "Garmin", items: ["Garmin API key"] },
       {
-        heading: "Authentication",
+        heading: "Strava",
         items: [
           "Strava client ID",
           "Strava client secret",
@@ -121,7 +134,9 @@ describe("SettingsTab", () => {
           "Folder date format",
           "Filename",
           "Filename date format",
+          "Re-import activities",
           "Import Strava bulk export",
+          "Import FIT files",
         ],
       },
       {
@@ -139,17 +154,24 @@ describe("SettingsTab", () => {
   it("renders the same rows on older Obsidian versions", () => {
     settingsTab.display();
 
-    const expected = definitions().flatMap((group) => [
-      ...("heading" in group && group.heading
-        ? [{ name: group.heading, heading: true }]
-        : []),
-      ...("items" in group && group.items
-        ? group.items.map((item) => ({
-            name: "name" in item ? item.name : undefined,
-            heading: false,
-          }))
-        : []),
-    ]);
+    const visible = (group: { visible?: boolean | (() => boolean) }) =>
+      typeof group.visible === "function"
+        ? group.visible()
+        : group.visible !== false;
+
+    const expected = definitions()
+      .filter((group) => !("type" in group) || visible(group))
+      .flatMap((group) => [
+        ...("heading" in group && group.heading
+          ? [{ name: group.heading, heading: true }]
+          : []),
+        ...("items" in group && group.items
+          ? group.items.map((item) => ({
+              name: "name" in item ? item.name : undefined,
+              heading: false,
+            }))
+          : []),
+      ]);
 
     expect(
       renderedSettings().map(({ name, heading }) => ({ name, heading })),
@@ -157,9 +179,8 @@ describe("SettingsTab", () => {
   });
 
   it("includes link text in descriptions", () => {
-    const [authentication] = definitions();
-    const clientId =
-      "items" in authentication ? authentication.items?.[0] : undefined;
+    const strava = definitions()[2];
+    const clientId = "items" in strava ? strava.items?.[0] : undefined;
 
     expect(
       descText(clientId && "desc" in clientId ? clientId.desc : undefined),
@@ -168,11 +189,6 @@ describe("SettingsTab", () => {
 
   it.each([
     ["Strava client ID", "abc", () => settings.authentication.stravaClientId],
-    [
-      "Strava client secret",
-      "shh",
-      () => settings.authentication.stravaClientSecret,
-    ],
     ["Folder", "Runs", () => settings.sync.folder],
     ["Folder date format", "yyyy", () => settings.sync.folderDateFormat],
     ["Filename", "{{name}}", () => settings.sync.filename],
@@ -305,6 +321,154 @@ describe("SettingsTab", () => {
         8000,
       );
     });
+  });
+
+  it("opens the re-import dialog", () => {
+    const [button] = renderRow("Re-import activities").components;
+
+    button.onClickHandler?.();
+
+    expect(plugin.openReimportModal).toHaveBeenCalled();
+  });
+
+  it("imports FIT files", () => {
+    (plugin as unknown as Record<string, unknown>).importActivitiesFromFIT =
+      jest.fn().mockResolvedValue(undefined);
+    const [button] = renderRow("Import FIT files").components;
+
+    button.onClickHandler?.();
+
+    expect(plugin.importActivitiesFromFIT).toHaveBeenCalled();
+  });
+
+  describe("activity source", () => {
+    const groupVisible = (heading: string) => {
+      const group = definitions().find(
+        (item) => "heading" in item && item.heading === heading,
+      );
+      return group && "visible" in group && typeof group.visible === "function"
+        ? group.visible()
+        : undefined;
+    };
+
+    it("shows the Strava settings for Strava", () => {
+      expect(groupVisible("Strava")).toBe(true);
+      expect(groupVisible("Garmin")).toBe(false);
+    });
+
+    it("shows the Garmin settings for Garmin", () => {
+      settings.sync.source = "garmin";
+
+      expect(groupVisible("Strava")).toBe(false);
+      expect(groupVisible("Garmin")).toBe(true);
+    });
+
+    it("shows the Powered by Strava logo only for Strava", () => {
+      const logoVisible = () => {
+        const group = definitions().at(-1);
+        return group &&
+          "visible" in group &&
+          typeof group.visible === "function"
+          ? group.visible()
+          : undefined;
+      };
+
+      expect(logoVisible()).toBe(true);
+
+      settings.sync.source = "garmin";
+      expect(logoVisible()).toBe(false);
+    });
+
+    it("saves a new source and refreshes the tab", () => {
+      const [dropdown] = renderRow("Import new activities from").components;
+
+      expect(dropdown.value).toBe("strava");
+
+      dropdown.onChangeHandler?.("garmin");
+
+      expect(settings.sync.source).toBe("garmin");
+      expect(plugin.saveSettings).toHaveBeenCalled();
+      expect(settingsTab.update).toHaveBeenCalled();
+    });
+
+    it("mentions that Strava needs a subscription", () => {
+      const [dropdown] = renderRow("Import new activities from")
+        .components as unknown as { options: Record<string, string> }[];
+
+      expect(dropdown.options).toEqual({
+        strava: "Strava (needs a Strava subscription)",
+        garmin: "Garmin",
+      });
+    });
+  });
+
+  describe.each([
+    {
+      row: "Garmin API key",
+      nameSetting: "garminApiKeyName" as const,
+      setName: "setGarminApiKeyName" as const,
+    },
+    {
+      row: "Strava client secret",
+      nameSetting: "stravaClientSecretName" as const,
+      setName: "setStravaClientSecretName" as const,
+    },
+  ])("$row, with secret storage", ({ row, nameSetting, setName }) => {
+    it("picks a secret by name", () => {
+      settings.authentication[nameSetting] = "my-secret";
+      const [picker] = renderRow(row).components;
+
+      expect(picker).toBeInstanceOf(SecretComponent);
+      expect(picker.value).toBe("my-secret");
+    });
+
+    it("saves the chosen secret's name", () => {
+      const [picker] = renderRow(row).components;
+
+      picker.onChangeHandler?.("other-secret");
+
+      expect(plugin[setName]).toHaveBeenCalledWith("other-secret");
+    });
+  });
+
+  describe("without secret storage (before Obsidian 1.11.4)", () => {
+    beforeEach(() => {
+      (requireApiVersion as jest.Mock).mockReturnValue(false);
+    });
+
+    afterEach(() => {
+      (requireApiVersion as jest.Mock).mockReturnValue(true);
+    });
+
+    it("takes the Garmin API key itself", () => {
+      (plugin.getGarminApiKey as jest.Mock).mockReturnValue("secret-key");
+      const [text] = renderRow("Garmin API key").components;
+
+      expect(text).not.toBeInstanceOf(SecretComponent);
+      expect(text.value).toBe("secret-key");
+
+      text.onChangeHandler?.("new-key");
+      expect(plugin.setGarminApiKey).toHaveBeenCalledWith("new-key");
+    });
+
+    it("takes the Strava client secret itself", () => {
+      const [text] = renderRow("Strava client secret").components;
+
+      text.onChangeHandler?.("shh");
+
+      expect(settings.authentication.stravaClientSecret).toBe("shh");
+      expect(plugin.saveSettings).toHaveBeenCalled();
+    });
+  });
+
+  it("shows Strava's Connect with Strava button", () => {
+    const setting = renderRow("Authenticate with Strava") as unknown as {
+      classes: string[];
+    };
+
+    expect(setting.classes).toEqual([
+      "physical-activity-importer-strava-connect",
+    ]);
   });
 
   it("shows the Powered by Strava logo", () => {
