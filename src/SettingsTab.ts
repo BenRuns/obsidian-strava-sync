@@ -2,6 +2,7 @@ import {
   type App,
   Notice,
   PluginSettingTab,
+  SecretComponent,
   Setting,
   type SettingDefinitionItem,
   requireApiVersion,
@@ -163,18 +164,28 @@ export class SettingsTab extends PluginSettingTab {
               "Create a Personal API key in Garmin Connect (",
               "Garmin's guide",
               GARMIN_PERSONAL_API_URL,
-              ") and paste it here. Keys expire after 30 to 365 days, depending on what you choose.",
+              "), then choose the secret holding it, or create one. Keys expire after 30 to 365 days, depending on what you choose.",
             ),
+            // Obsidian's secret storage where it has one: this saves only
+            // the secret's name. Before 1.11.4, the key itself.
             render: (setting) =>
-              setting.addText((text) => {
-                text
-                  .setPlaceholder("Paste your API key")
-                  .setValue(this.plugin.getGarminApiKey() ?? "")
-                  .onChange((value) => {
-                    void this.plugin.setGarminApiKey(value);
-                  });
-                text.inputEl.type = "password";
-              }),
+              requireApiVersion("1.11.4")
+                ? setting.addComponent((el) =>
+                    new SecretComponent(this.app, el)
+                      .setValue(settings.authentication.garminApiKeyName ?? "")
+                      .onChange((name) => {
+                        void this.plugin.setGarminApiKeyName(name);
+                      }),
+                  )
+                : setting.addText((text) => {
+                    text
+                      .setPlaceholder("Paste your API key")
+                      .setValue(this.plugin.getGarminApiKey() ?? "")
+                      .onChange((value) => {
+                        void this.plugin.setGarminApiKey(value);
+                      });
+                    text.inputEl.type = "password";
+                  }),
           },
         ],
       },
@@ -204,21 +215,32 @@ export class SettingsTab extends PluginSettingTab {
           {
             name: "Strava client secret",
             desc: linkedDesc(
-              "Enter your Strava API client secret (",
+              "Choose the secret holding your Strava API client secret, or create one (",
               "instructions",
               SYNC_CONFIGURATION_URL,
               ")",
             ),
             render: (setting) =>
-              setting.addText((text) =>
-                text
-                  .setPlaceholder("Enter client secret")
-                  .setValue(settings.authentication.stravaClientSecret)
-                  .onChange((value) => {
-                    settings.authentication.stravaClientSecret = value;
-                    save();
+              requireApiVersion("1.11.4")
+                ? setting.addComponent((el) =>
+                    new SecretComponent(this.app, el)
+                      .setValue(
+                        settings.authentication.stravaClientSecretName ?? "",
+                      )
+                      .onChange((name) => {
+                        void this.plugin.setStravaClientSecretName(name);
+                      }),
+                  )
+                : setting.addText((text) => {
+                    text
+                      .setPlaceholder("Enter client secret")
+                      .setValue(settings.authentication.stravaClientSecret)
+                      .onChange((value) => {
+                        settings.authentication.stravaClientSecret = value;
+                        save();
+                      });
+                    text.inputEl.type = "password";
                   }),
-              ),
           },
           {
             name: "Authenticate with Strava",

@@ -64,16 +64,22 @@ In order to configure the plugin, you will need to obtain an access token from S
 
 ![Strava Personal App](./assets/screenshot_strava_personal_app.png)
 
-Once that's done, copy the Client ID and Client Secret into the plugin settings, and click the button next to "Authenticate with Strava". You will be redirected to Strava to login and authorize access. After successful authorization, you will be redirected back to your Obsidian vault and can close the browser window.
+Once that's done, copy the Client ID into the plugin settings. For "Strava client secret", create a secret holding your Client Secret (or choose one you already have), then click the button next to "Authenticate with Strava". You will be redirected to Strava to login and authorize access. After successful authorization, you will be redirected back to your Obsidian vault and can close the browser window.
+
+#### Secrets
+
+On Obsidian 1.11.4 and later, the Strava client secret, the Garmin API key and Strava's sign-in tokens are kept in Obsidian's [secret storage](https://docs.obsidian.md/plugins/guides/secret-storage), not in the plugin's `data.json`. You choose the client secret and Garmin key by name, so one secret can be shared with other plugins and managed in one place. Secrets saved in `data.json` by earlier versions are moved there automatically.
+
+Secret storage is kept on each device and isn't synced with your vault, so on each device you'll need to set up the secrets and authenticate with Strava again. On older Obsidian versions, secrets are saved in `data.json` as before.
 
 #### Garmin
 
 Garmin's [Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-api/) gives you read-only access to your own Garmin Connect data, for free.
 
 1. In Garmin Connect, create a Personal API key ([Garmin's guide](https://developer.garmin.com/gc-developer-program/personal/personal-api/)). It's only shown once, and expires after the period you choose (30 to 365 days).
-2. In the plugin settings, set "Import new activities from" to Garmin and paste the key into "Garmin API key".
+2. In the plugin settings, set "Import new activities from" to Garmin. For "Garmin API key", create a secret holding your key (or choose one you already have, for example one another Garmin plugin uses).
 
-On Obsidian 1.11.4 and later the key is kept in Obsidian's secret storage, not in the plugin's `data.json`. Each activity is imported from its original FIT file, so Garmin activities have the same fields as imported FIT files, plus the name, description and link from Garmin Connect.
+Each activity is imported from its original FIT file, so Garmin activities have the same fields as imported FIT files, plus the name, description and link from Garmin Connect.
 
 ## Basic Usage
 

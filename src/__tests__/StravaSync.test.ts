@@ -196,9 +196,12 @@ describe("StravaSync", () => {
     );
   });
 
-  describe("with Garmin as the source", () => {
-    const secrets: Record<string, string> = {};
+  // The secrets in the mock App's secret storage
+  const secrets = () =>
+    (app as unknown as { secretStorage: { secrets: Record<string, string> } })
+      .secretStorage.secrets;
 
+  describe("with Garmin as the source", () => {
     const garminActivity = (startTime: string) => ({
       id: Date.parse(startTime) / 1000,
       name: "Run",
@@ -209,18 +212,10 @@ describe("StravaSync", () => {
     beforeEach(async () => {
       jest.spyOn(console, "error").mockImplementation(() => {});
       mockGarminImport.mockReset();
-      for (const key of Object.keys(secrets)) delete secrets[key];
-      Object.assign(app, {
-        secretStorage: {
-          getSecret: (id: string) => secrets[id] ?? null,
-          setSecret: (id: string, value: string) => {
-            secrets[id] = value;
-          },
-        },
-      });
       await plugin.loadSettings();
       plugin.settings.sync.source = "garmin";
-      await plugin.setGarminApiKey(" garmin-key ");
+      secrets()["my-garmin-key"] = "garmin-key";
+      await plugin.setGarminApiKeyName("my-garmin-key");
     });
 
     test("imports from Garmin, not Strava", async () => {
@@ -263,7 +258,7 @@ describe("StravaSync", () => {
     });
 
     test("asks for an API key first", async () => {
-      await plugin.setGarminApiKey("");
+      await plugin.setGarminApiKeyName(null);
 
       await plugin.importNewActivities();
 
@@ -287,24 +282,186 @@ describe("StravaSync", () => {
       );
     });
 
-    test("keeps the API key in secret storage", () => {
-      expect(secrets["strava-sync-garmin-api-key"]).toBe("garmin-key");
+    test("reads the API key from the chosen secret", () => {
       expect(plugin.getGarminApiKey()).toBe("garmin-key");
-      expect(plugin.settings.authentication.garminApiKey).toBeUndefined();
+
+      // Changed in Obsidian's secret storage: used straight away
+      secrets()["my-garmin-key"] = "new-key";
+      expect(plugin.getGarminApiKey()).toBe("new-key");
     });
 
-    test("keeps the API key in settings without secret storage", async () => {
-      (requireApiVersion as jest.Mock).mockReturnValue(false);
-      try {
-        await plugin.setGarminApiKey("old-obsidian-key");
+    test("saves only the secret's name", () => {
+      const saved = (plugin.saveData as jest.Mock).mock.lastCall[0];
 
-        expect(plugin.settings.authentication.garminApiKey).toBe(
-          "old-obsidian-key",
-        );
-        expect(plugin.getGarminApiKey()).toBe("old-obsidian-key");
-      } finally {
+      expect(saved.authentication.garminApiKeyName).toBe("my-garmin-key");
+      expect(JSON.stringify(saved)).not.toContain('"garmin-key"');
+    });
+  });
+
+  describe("secrets", () => {
+    const SECRETS_IN_DATA_JSON = {
+      stravaClientId: "client-id",
+      stravaClientSecret: "client-secret",
+      stravaAccessToken: "access-token",
+      stravaRefreshToken: "refresh-token",
+      stravaTokenExpiresAt: 1234,
+      garminApiKey: "garmin-key",
+    };
+
+    const savedAuthentication = () =>
+      (plugin.saveData as jest.Mock).mock.lastCall[0].authentication;
+
+    beforeEach(() => {
+      (plugin.saveData as jest.Mock).mockClear();
+    });
+
+    test("moves secrets saved in data.json into secret storage", async () => {
+      (plugin.loadData as jest.Mock).mockResolvedValueOnce({
+        authentication: SECRETS_IN_DATA_JSON,
+      });
+
+      await plugin.loadSettings();
+
+      expect(secrets()).toEqual({
+        "strava-sync-client-secret": "client-secret",
+        "strava-sync-access-token": "access-token",
+        "strava-sync-refresh-token": "refresh-token",
+        "strava-sync-garmin-api-key": "garmin-key",
+      });
+
+      // data.json is saved again without them
+      expect(JSON.parse(JSON.stringify(savedAuthentication()))).toEqual({
+        stravaClientId: "client-id",
+        stravaClientSecret: "",
+        stravaClientSecretName: "strava-sync-client-secret",
+        stravaTokenExpiresAt: 1234,
+        garminApiKeyName: "strava-sync-garmin-api-key",
+      });
+
+      // and the plugin carries on with them
+      expect(plugin.settings.authentication).toMatchObject({
+        stravaClientSecret: "client-secret",
+        stravaAccessToken: "access-token",
+        stravaRefreshToken: "refresh-token",
+      });
+      expect(plugin.getGarminApiKey()).toBe("garmin-key");
+    });
+
+    test("loads secrets from secret storage", async () => {
+      Object.assign(secrets(), {
+        "my-strava-secret": "client-secret",
+        "strava-sync-access-token": "access-token",
+        "strava-sync-refresh-token": "refresh-token",
+      });
+      (plugin.loadData as jest.Mock).mockResolvedValueOnce({
+        authentication: {
+          stravaClientId: "client-id",
+          stravaClientSecret: "",
+          stravaClientSecretName: "my-strava-secret",
+          stravaTokenExpiresAt: 1234,
+        },
+      });
+
+      await plugin.loadSettings();
+
+      expect(plugin.settings.authentication).toMatchObject({
+        stravaClientSecret: "client-secret",
+        stravaAccessToken: "access-token",
+        stravaRefreshToken: "refresh-token",
+      });
+      expect(plugin.saveData).not.toHaveBeenCalled();
+    });
+
+    test("keeps new Strava tokens out of data.json", async () => {
+      await plugin.loadSettings();
+      Object.assign(plugin.settings.authentication, {
+        stravaAccessToken: "new-access-token",
+        stravaRefreshToken: "new-refresh-token",
+        stravaTokenExpiresAt: 5678,
+      });
+
+      await plugin.saveSettings();
+
+      expect(secrets()["strava-sync-access-token"]).toBe("new-access-token");
+      expect(secrets()["strava-sync-refresh-token"]).toBe("new-refresh-token");
+      expect(savedAuthentication().stravaAccessToken).toBeUndefined();
+      expect(savedAuthentication().stravaRefreshToken).toBeUndefined();
+      expect(savedAuthentication().stravaTokenExpiresAt).toBe(5678);
+      // Still there for the plugin to use
+      expect(plugin.settings.authentication.stravaAccessToken).toBe(
+        "new-access-token",
+      );
+    });
+
+    test("blanks tokens that are gone", async () => {
+      secrets()["strava-sync-access-token"] = "old-token";
+      await plugin.loadSettings();
+      plugin.settings.authentication.stravaAccessToken = undefined;
+
+      await plugin.saveSettings();
+
+      expect(secrets()["strava-sync-access-token"]).toBe("");
+      expect(secrets()).not.toHaveProperty("strava-sync-refresh-token");
+    });
+
+    test("uses the chosen Strava client secret", async () => {
+      await plugin.loadSettings();
+      secrets()["my-strava-secret"] = "client-secret";
+
+      await plugin.setStravaClientSecretName("my-strava-secret");
+
+      expect(plugin.settings.authentication.stravaClientSecret).toBe(
+        "client-secret",
+      );
+      expect(savedAuthentication()).toMatchObject({
+        stravaClientSecret: "",
+        stravaClientSecretName: "my-strava-secret",
+      });
+    });
+
+    test("reads a changed client secret before importing from Strava", async () => {
+      await plugin.loadSettings();
+      secrets()["my-strava-secret"] = "old-secret";
+      await plugin.setStravaClientSecretName("my-strava-secret");
+      secrets()["my-strava-secret"] = "new-secret";
+
+      await plugin.importNewActivities();
+
+      expect(plugin.settings.authentication.stravaClientSecret).toBe(
+        "new-secret",
+      );
+    });
+
+    describe("without secret storage (before Obsidian 1.11.4)", () => {
+      beforeEach(() => {
+        (requireApiVersion as jest.Mock).mockReturnValue(false);
+      });
+
+      afterEach(() => {
         (requireApiVersion as jest.Mock).mockReturnValue(true);
-      }
+      });
+
+      test("keeps secrets in data.json", async () => {
+        (plugin.loadData as jest.Mock).mockResolvedValueOnce({
+          authentication: SECRETS_IN_DATA_JSON,
+        });
+
+        await plugin.loadSettings();
+        await plugin.saveSettings();
+
+        expect(secrets()).toEqual({});
+        expect(savedAuthentication()).toMatchObject(SECRETS_IN_DATA_JSON);
+        expect(plugin.getGarminApiKey()).toBe("garmin-key");
+      });
+
+      test("saves a Garmin API key", async () => {
+        await plugin.loadSettings();
+
+        await plugin.setGarminApiKey(" garmin-key ");
+
+        expect(savedAuthentication().garminApiKey).toBe("garmin-key");
+        expect(plugin.getGarminApiKey()).toBe("garmin-key");
+      });
     });
   });
 

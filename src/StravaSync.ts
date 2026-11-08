@@ -15,7 +15,11 @@ import { StravaApi } from "./StravaApi";
 const ICON_ID = "strava";
 const SUCCESS_NOTICE_DURATION = 4000;
 const ERROR_NOTICE_DURATION = 8000;
-// Where the Garmin API key is kept in Obsidian's secret storage
+// Obsidian's secret storage (1.11.4+): Strava's sign-in tokens are kept under
+// these names, and secrets moved out of data.json get the others.
+const STRAVA_ACCESS_TOKEN_SECRET = "strava-sync-access-token";
+const STRAVA_REFRESH_TOKEN_SECRET = "strava-sync-refresh-token";
+const STRAVA_CLIENT_SECRET_SECRET = "strava-sync-client-secret";
 const GARMIN_API_KEY_SECRET = "strava-sync-garmin-api-key";
 
 export default class StravaSync extends Plugin {
@@ -48,6 +52,7 @@ export default class StravaSync extends Plugin {
     });
 
     this.registerObsidianProtocolHandler("strava-sync", async (args) => {
+      this.loadStravaClientSecret();
       await this.stravaApi.exchangeCodeForToken(args.code);
       this.settings.authentication = this.stravaApi.settings;
       await this.saveSettings();
@@ -199,6 +204,8 @@ export default class StravaSync extends Plugin {
   }
 
   private async importNewStravaActivities() {
+    this.loadStravaClientSecret();
+
     try {
       if (!this.stravaApi.isAuthenticated()) {
         new Notice(
@@ -255,27 +262,113 @@ export default class StravaSync extends Plugin {
     if (this.settings.activity.template === LEGACY_DEFAULT_TEMPLATE) {
       this.settings.activity.template = DEFAULT_SETTINGS.activity.template;
     }
-  }
 
-  // Kept in Obsidian's secret storage where available (1.11.4+), so it isn't
-  // in data.json with the rest of the settings.
-  getGarminApiKey(): string | null {
-    return requireApiVersion("1.11.4")
-      ? this.app.secretStorage.getSecret(GARMIN_API_KEY_SECRET)
-      : (this.settings.authentication.garminApiKey ?? null);
-  }
-
-  async setGarminApiKey(apiKey: string) {
     if (requireApiVersion("1.11.4")) {
-      this.app.secretStorage.setSecret(GARMIN_API_KEY_SECRET, apiKey.trim());
-    } else {
-      this.settings.authentication.garminApiKey = apiKey.trim() || undefined;
-      await this.saveSettings();
+      const secrets = this.app.secretStorage;
+      const auth = this.settings.authentication;
+      const inDataJson = Boolean(
+        auth.stravaClientSecret ||
+          auth.stravaAccessToken ||
+          auth.stravaRefreshToken ||
+          auth.garminApiKey,
+      );
+
+      // Secrets saved in data.json by earlier versions move to secret storage
+      if (auth.stravaClientSecret && !auth.stravaClientSecretName) {
+        secrets.setSecret(STRAVA_CLIENT_SECRET_SECRET, auth.stravaClientSecret);
+        auth.stravaClientSecretName = STRAVA_CLIENT_SECRET_SECRET;
+      }
+      if (auth.garminApiKey && !auth.garminApiKeyName) {
+        secrets.setSecret(GARMIN_API_KEY_SECRET, auth.garminApiKey);
+      }
+      if (!auth.garminApiKeyName && secrets.getSecret(GARMIN_API_KEY_SECRET)) {
+        auth.garminApiKeyName = GARMIN_API_KEY_SECRET;
+      }
+      auth.garminApiKey = undefined;
+
+      auth.stravaAccessToken =
+        auth.stravaAccessToken ||
+        secrets.getSecret(STRAVA_ACCESS_TOKEN_SECRET) ||
+        undefined;
+      auth.stravaRefreshToken =
+        auth.stravaRefreshToken ||
+        secrets.getSecret(STRAVA_REFRESH_TOKEN_SECRET) ||
+        undefined;
+      this.loadStravaClientSecret();
+
+      if (inDataJson) {
+        await this.saveSettings();
+      }
     }
   }
 
+  // Reads the chosen client secret from secret storage, where it may have
+  // changed since the plugin loaded.
+  loadStravaClientSecret() {
+    const auth = this.settings.authentication;
+    if (requireApiVersion("1.11.4")) {
+      auth.stravaClientSecret =
+        (auth.stravaClientSecretName &&
+          this.app.secretStorage.getSecret(auth.stravaClientSecretName)) ||
+        "";
+    }
+  }
+
+  async setStravaClientSecretName(name: string | null) {
+    this.settings.authentication.stravaClientSecretName = name || undefined;
+    this.loadStravaClientSecret();
+    await this.saveSettings();
+  }
+
+  getGarminApiKey(): string | null {
+    const auth = this.settings.authentication;
+    if (requireApiVersion("1.11.4")) {
+      return auth.garminApiKeyName
+        ? this.app.secretStorage.getSecret(auth.garminApiKeyName)
+        : null;
+    }
+    return auth.garminApiKey ?? null;
+  }
+
+  async setGarminApiKeyName(name: string | null) {
+    this.settings.authentication.garminApiKeyName = name || undefined;
+    await this.saveSettings();
+  }
+
+  // Before Obsidian 1.11.4, which has no secret storage
+  async setGarminApiKey(apiKey: string) {
+    this.settings.authentication.garminApiKey = apiKey.trim() || undefined;
+    await this.saveSettings();
+  }
+
+  // With secret storage, the secrets go there and are left out of data.json.
   async saveSettings() {
-    await this.saveData(this.settings);
+    if (requireApiVersion("1.11.4")) {
+      const auth = this.settings.authentication;
+      const tokens: [string, string | undefined][] = [
+        [STRAVA_ACCESS_TOKEN_SECRET, auth.stravaAccessToken],
+        [STRAVA_REFRESH_TOKEN_SECRET, auth.stravaRefreshToken],
+      ];
+      for (const [name, value] of tokens) {
+        // Secrets can't be deleted, so a token that's gone is blanked
+        if (value || this.app.secretStorage.getSecret(name)) {
+          this.app.secretStorage.setSecret(name, value ?? "");
+        }
+      }
+
+      await this.saveData({
+        ...this.settings,
+        authentication: {
+          ...auth,
+          stravaClientSecret: "",
+          stravaAccessToken: undefined,
+          stravaRefreshToken: undefined,
+          garminApiKey: undefined,
+        },
+      });
+    } else {
+      await this.saveData(this.settings);
+    }
   }
 
   private async serializeActivities(newLabel: boolean) {

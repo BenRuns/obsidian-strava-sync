@@ -54,14 +54,22 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 };
 
+// On Obsidian 1.11.4+, secrets live in Obsidian's secret storage, not
+// data.json: the client secret and Garmin key you pick by name (saved here),
+// and Strava's sign-in tokens under the plugin's own names. While the plugin
+// runs, the values are also held here; saveSettings leaves them out.
 export interface AuthenticationSettings {
   stravaClientId: string;
   stravaClientSecret: string;
+  // Name of the secret holding the Strava client secret
+  stravaClientSecretName?: string;
   stravaAccessToken?: string;
   stravaRefreshToken?: string;
   stravaTokenExpiresAt?: number;
-  // Only used on Obsidian versions without secret storage (before 1.11.4)
+  // Only saved on Obsidian versions without secret storage (before 1.11.4)
   garminApiKey?: string;
+  // Name of the secret holding the Garmin API key
+  garminApiKeyName?: string;
 }
 
 // Where "Import new activities" gets activities from.

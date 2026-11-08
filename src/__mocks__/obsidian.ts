@@ -15,7 +15,25 @@ export class Plugin {
   registerObsidianProtocolHandler = jest.fn();
 }
 
+// Obsidian's secret storage, kept in memory
+export class MockSecretStorage {
+  secrets: Record<string, string> = {};
+
+  getSecret(id: string) {
+    return this.secrets[id] ?? null;
+  }
+
+  setSecret(id: string, secret: string) {
+    this.secrets[id] = secret;
+  }
+
+  listSecrets() {
+    return Object.keys(this.secrets);
+  }
+}
+
 export const App = jest.fn().mockImplementation(() => ({
+  secretStorage: new MockSecretStorage(),
   vault: {
     create: jest.fn(),
     getAbstractFileByPath: jest.fn(),
@@ -107,6 +125,9 @@ class MockComponent {
   }
 }
 
+// Picks a secret from secret storage by name
+export class SecretComponent extends MockComponent {}
+
 export class Setting {
   name?: string;
   desc?: unknown;
@@ -134,7 +155,7 @@ export class Setting {
     return this;
   }
 
-  private addComponent(callback: (component: MockComponent) => unknown) {
+  private addControl(callback: (component: MockComponent) => unknown) {
     const component = new MockComponent();
     this.components.push(component);
     callback(component);
@@ -142,22 +163,28 @@ export class Setting {
   }
 
   addText(callback: (component: MockComponent) => unknown) {
-    return this.addComponent(callback);
+    return this.addControl(callback);
   }
 
   addTextArea(callback: (component: MockComponent) => unknown) {
-    return this.addComponent(callback);
+    return this.addControl(callback);
   }
 
   addButton(callback: (component: MockComponent) => unknown) {
-    return this.addComponent(callback);
+    return this.addControl(callback);
   }
 
   addExtraButton(callback: (component: MockComponent) => unknown) {
-    return this.addComponent(callback);
+    return this.addControl(callback);
   }
 
   addDropdown(callback: (component: MockComponent) => unknown) {
-    return this.addComponent(callback);
+    return this.addControl(callback);
+  }
+
+  // Obsidian's addComponent: the callback builds the component in an element
+  addComponent(callback: (el: unknown) => MockComponent) {
+    this.components.push(callback({}));
+    return this;
   }
 }

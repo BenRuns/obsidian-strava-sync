@@ -1,4 +1,10 @@
-import { App, Notice, Setting, requireApiVersion } from "obsidian";
+import {
+  App,
+  Notice,
+  SecretComponent,
+  Setting,
+  requireApiVersion,
+} from "obsidian";
 import { DEFAULT_SETTINGS, type Settings } from "../Settings";
 import { SettingsTab } from "../SettingsTab";
 import type StravaSync from "../StravaSync";
@@ -66,6 +72,8 @@ describe("SettingsTab", () => {
       importActivitiesFromCSV: jest.fn().mockResolvedValue(undefined),
       getGarminApiKey: jest.fn().mockReturnValue(null),
       setGarminApiKey: jest.fn().mockResolvedValue(undefined),
+      setGarminApiKeyName: jest.fn().mockResolvedValue(undefined),
+      setStravaClientSecretName: jest.fn().mockResolvedValue(undefined),
       stravaApi: {
         buildAuthorizeUrl: () => "https://www.strava.com/oauth/authorize",
       },
@@ -179,11 +187,6 @@ describe("SettingsTab", () => {
 
   it.each([
     ["Strava client ID", "abc", () => settings.authentication.stravaClientId],
-    [
-      "Strava client secret",
-      "shh",
-      () => settings.authentication.stravaClientSecret,
-    ],
     ["Folder", "Runs", () => settings.sync.folder],
     ["Folder date format", "yyyy", () => settings.sync.folderDateFormat],
     ["Filename", "{{name}}", () => settings.sync.filename],
@@ -373,21 +376,62 @@ describe("SettingsTab", () => {
     });
   });
 
-  describe("Garmin API key", () => {
-    it("shows the stored key", () => {
-      (plugin.getGarminApiKey as jest.Mock).mockReturnValue("secret-key");
+  describe.each([
+    {
+      row: "Garmin API key",
+      nameSetting: "garminApiKeyName" as const,
+      setName: "setGarminApiKeyName" as const,
+    },
+    {
+      row: "Strava client secret",
+      nameSetting: "stravaClientSecretName" as const,
+      setName: "setStravaClientSecretName" as const,
+    },
+  ])("$row, with secret storage", ({ row, nameSetting, setName }) => {
+    it("picks a secret by name", () => {
+      settings.authentication[nameSetting] = "my-secret";
+      const [picker] = renderRow(row).components;
 
-      expect(renderRow("Garmin API key").components[0].value).toBe(
-        "secret-key",
-      );
+      expect(picker).toBeInstanceOf(SecretComponent);
+      expect(picker.value).toBe("my-secret");
     });
 
-    it("stores a new key", () => {
+    it("saves the chosen secret's name", () => {
+      const [picker] = renderRow(row).components;
+
+      picker.onChangeHandler?.("other-secret");
+
+      expect(plugin[setName]).toHaveBeenCalledWith("other-secret");
+    });
+  });
+
+  describe("without secret storage (before Obsidian 1.11.4)", () => {
+    beforeEach(() => {
+      (requireApiVersion as jest.Mock).mockReturnValue(false);
+    });
+
+    afterEach(() => {
+      (requireApiVersion as jest.Mock).mockReturnValue(true);
+    });
+
+    it("takes the Garmin API key itself", () => {
+      (plugin.getGarminApiKey as jest.Mock).mockReturnValue("secret-key");
       const [text] = renderRow("Garmin API key").components;
 
-      text.onChangeHandler?.("new-key");
+      expect(text).not.toBeInstanceOf(SecretComponent);
+      expect(text.value).toBe("secret-key");
 
+      text.onChangeHandler?.("new-key");
       expect(plugin.setGarminApiKey).toHaveBeenCalledWith("new-key");
+    });
+
+    it("takes the Strava client secret itself", () => {
+      const [text] = renderRow("Strava client secret").components;
+
+      text.onChangeHandler?.("shh");
+
+      expect(settings.authentication.stravaClientSecret).toBe("shh");
+      expect(plugin.saveSettings).toHaveBeenCalled();
     });
   });
 
