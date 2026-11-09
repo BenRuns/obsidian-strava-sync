@@ -9,7 +9,12 @@ import { FitImporter } from "./FitImporter";
 import { GarminActivityImporter } from "./GarminActivityImporter";
 import { GarminApi, GarminApiError } from "./GarminApi";
 import { ReimportModal } from "./ReimportModal";
-import { DEFAULT_SETTINGS, type Settings } from "./Settings";
+import {
+  DEFAULT_SETTINGS,
+  type Settings,
+  addCalorieProperties,
+  calorieProfile,
+} from "./Settings";
 import { SettingsTab } from "./SettingsTab";
 import { StravaApi } from "./StravaApi";
 
@@ -130,7 +135,10 @@ export default class PhysicalActivityImporter extends Plugin {
   async importActivitiesFromFIT() {
     try {
       const files = await this.fitFileSelector.selectFiles();
-      const { activities, errors } = await new FitImporter(files).import();
+      const { activities, errors } = await new FitImporter(
+        files,
+        calorieProfile(this.settings.calories),
+      ).import();
       this.activities = activities;
 
       if (activities.length > 0) {
@@ -207,6 +215,7 @@ export default class PhysicalActivityImporter extends Plugin {
       const { activities, errors } = await new GarminActivityImporter(
         this.garminApi,
         since ?? this.settings.sync.lastGarminActivityTimestamp,
+        calorieProfile(this.settings.calories),
       ).importLatestActivities();
       this.activities = activities;
 
@@ -289,6 +298,7 @@ export default class PhysicalActivityImporter extends Plugin {
       },
       sync: { ...DEFAULT_SETTINGS.sync, ...saved.sync },
       activity: { ...DEFAULT_SETTINGS.activity, ...saved.activity },
+      calories: { ...DEFAULT_SETTINGS.calories, ...saved.calories },
     };
 
     if (this.settings.activity.template === LEGACY_DEFAULT_TEMPLATE) {
@@ -404,6 +414,10 @@ export default class PhysicalActivityImporter extends Plugin {
   }
 
   private async serializeActivities(newLabel: boolean) {
+    if (addCalorieProperties(this.settings)) {
+      await this.saveSettings();
+    }
+
     let createdCount = 0;
     let updatedCount = 0;
 

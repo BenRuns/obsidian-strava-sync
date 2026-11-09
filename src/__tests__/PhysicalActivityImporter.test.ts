@@ -13,7 +13,7 @@ import { DEFAULT_TEMPLATE, LEGACY_DEFAULT_TEMPLATE } from "../ActivityRenderer";
 import { GarminActivityImporter } from "../GarminActivityImporter";
 import { GarminApiError } from "../GarminApi";
 import PhysicalActivityImporter from "../PhysicalActivityImporter";
-import { RUN, buildFitFile } from "./fitFiles";
+import { RUN, buildFitFile, steadyRecords } from "./fitFiles";
 
 jest.mock("obsidian");
 
@@ -172,6 +172,42 @@ describe("PhysicalActivityImporter", () => {
     );
   });
 
+  test("Imports FIT files with estimated calories, adding their properties", async () => {
+    const saveSettings = jest.spyOn(plugin, "saveSettings");
+    plugin.settings.calories = {
+      weightUnit: "kg",
+      sex: "male",
+      birthYear: 1991,
+      weight: 75,
+    };
+    (plugin.fitFileSelector.selectFiles as jest.Mock).mockResolvedValue([
+      {
+        name: "run.fit",
+        data: buildFitFile([RUN], {
+          records: steadyRecords(3600, { heartRate: 150 }),
+        }),
+      },
+    ]);
+
+    await plugin.importActivitiesFromFIT();
+
+    expect(plugin.activitySerializer.serialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calories: 700,
+        estimated_calories: 882,
+        calories_method: "heart_rate",
+      }),
+    );
+    expect(plugin.settings.activity.frontMatterProperties).toEqual(
+      expect.arrayContaining([
+        "calories",
+        "estimated_calories",
+        "calories_method",
+      ]),
+    );
+    expect(saveSettings).toHaveBeenCalled();
+  });
+
   test("Import activities from FIT files", async () => {
     jest.spyOn(console, "error").mockImplementation(() => {});
     (plugin.fitFileSelector.selectFiles as jest.Mock).mockResolvedValue([
@@ -269,6 +305,7 @@ describe("PhysicalActivityImporter", () => {
       expect(GarminActivityImporter).toHaveBeenLastCalledWith(
         plugin.garminApi,
         SINCE,
+        undefined, // no calorie profile set
       );
       expect(plugin.settings.sync.lastGarminActivityTimestamp).toBe(
         SINCE + 86400 * 60,

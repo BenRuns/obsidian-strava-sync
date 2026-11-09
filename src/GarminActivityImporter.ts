@@ -1,4 +1,5 @@
 import type { Activity } from "./Activity";
+import type { CalorieProfile } from "./Calories";
 import { type FitImportResult, FitImporter } from "./FitImporter";
 import type { GarminActivitySummary, GarminApi } from "./GarminApi";
 
@@ -25,10 +26,16 @@ const startSeconds = (summary: GarminActivitySummary): number | undefined => {
 export class GarminActivityImporter {
   private garminApi: GarminApi;
   private lastActivityTimestamp?: number;
+  private profile?: CalorieProfile;
 
-  constructor(garminApi: GarminApi, lastActivityTimestamp?: number) {
+  constructor(
+    garminApi: GarminApi,
+    lastActivityTimestamp?: number,
+    profile?: CalorieProfile,
+  ) {
     this.garminApi = garminApi;
     this.lastActivityTimestamp = lastActivityTimestamp;
+    this.profile = profile;
   }
 
   async importLatestActivities(): Promise<FitImportResult> {
@@ -47,9 +54,10 @@ export class GarminActivityImporter {
       const name = `Garmin activity ${summary.activityId}`;
       try {
         const data = await this.garminApi.downloadActivity(summary.activityId);
-        const { activities, errors } = await new FitImporter([
-          { name, data },
-        ]).import();
+        const { activities, errors } = await new FitImporter(
+          [{ name, data }],
+          this.profile,
+        ).import();
 
         result.activities.push(
           ...activities.map((activity) => this.withSummary(activity, summary)),

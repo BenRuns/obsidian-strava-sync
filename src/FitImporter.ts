@@ -1,6 +1,11 @@
 import { unzipSync } from "fflate";
 import FitParser, { type ParsedFit } from "fit-file-parser";
 import type { Activity } from "./Activity";
+import {
+  type CalorieProfile,
+  type CalorieSample,
+  estimateCalories,
+} from "./Calories";
 
 export type FitSession = NonNullable<ParsedFit["sessions"]>[number];
 export type FitActivity = ParsedFit["activity"];
@@ -159,9 +164,63 @@ export const sessionToActivity = (
   };
 };
 
+// The records (second-by-second samples) recorded during a session.
+const sessionRecords = (
+  session: FitSession,
+  records: CalorieSample[],
+  onlySession: boolean,
+): CalorieSample[] => {
+  const start = session.start_time;
+  const elapsed = session.total_elapsed_time;
+  if (!(start instanceof Date) || elapsed === undefined) {
+    return onlySession ? records : [];
+  }
+  const from = start.getTime();
+  const to = from + elapsed * 1000;
+
+  return records.filter(
+    ({ timestamp }) =>
+      timestamp instanceof Date &&
+      timestamp.getTime() >= from &&
+      timestamp.getTime() <= to,
+  );
+};
+
+// Adds calories estimated from the session's heart rate or power, when
+// there's a profile to estimate with and enough data.
+const withEstimatedCalories = (
+  activity: Activity,
+  session: FitSession,
+  records: CalorieSample[],
+  profile?: CalorieProfile,
+): Activity => {
+  if (!profile) {
+    return activity;
+  }
+
+  const estimate = estimateCalories(records, profile, {
+    start: activity.start_date,
+    timerSeconds: activity.moving_time,
+    isCycling: session.sport === "cycling",
+  });
+
+  return estimate
+    ? {
+        ...activity,
+        estimated_calories: estimate.kcal,
+        active_calories: estimate.activeKcal,
+        calories_method: estimate.method,
+      }
+    : activity;
+};
+
 // One activity per session: most files have one, multisport files
-// (e.g. a triathlon) have one per leg.
-export const parseFitFile = async (data: ArrayBuffer): Promise<Activity[]> => {
+// (e.g. a triathlon) have one per leg. With a profile, calories are also
+// estimated from each session's heart rate or power.
+export const parseFitFile = async (
+  data: ArrayBuffer,
+  profile?: CalorieProfile,
+): Promise<Activity[]> => {
   let fit: ParsedFit;
   try {
     // Checks the file's CRC, rather than guessing at damaged files.
@@ -183,7 +242,16 @@ export const parseFitFile = async (data: ArrayBuffer): Promise<Activity[]> => {
 
   const offsetSeconds = utcOffsetSeconds(fit.activity);
 
-  return sessions.map((session) => sessionToActivity(session, offsetSeconds));
+  const records = fit.records ?? [];
+
+  return sessions.map((session) =>
+    withEstimatedCalories(
+      sessionToActivity(session, offsetSeconds),
+      session,
+      sessionRecords(session, records, sessions.length === 1),
+      profile,
+    ),
+  );
 };
 
 const isZip = (bytes: Uint8Array) =>
@@ -223,9 +291,11 @@ export const extractFitFiles = (file: FitFile): FitFile[] => {
 
 export class FitImporter {
   files: FitFile[];
+  profile?: CalorieProfile;
 
-  constructor(files: FitFile[]) {
+  constructor(files: FitFile[], profile?: CalorieProfile) {
     this.files = files;
+    this.profile = profile;
   }
 
   // Files that can't be read are reported, and don't stop the others.
@@ -249,7 +319,9 @@ export class FitImporter {
 
       for (const fitFile of fitFiles) {
         try {
-          result.activities.push(...(await parseFitFile(fitFile.data)));
+          result.activities.push(
+            ...(await parseFitFile(fitFile.data, this.profile)),
+          );
         } catch (error) {
           addError(fitFile, error);
         }

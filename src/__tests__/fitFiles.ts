@@ -25,9 +25,16 @@ export interface TestSession {
   enhancedMaxAltitude?: number; // m
 }
 
+export interface TestRecord {
+  timestamp: Date;
+  heartRate?: number; // bpm
+  power?: number; // W
+}
+
 // FIT message and field numbers, sizes, types and scales from the FIT profile.
 const FILE_ID = 0;
 const SESSION = 18;
+const RECORD = 20;
 const ACTIVITY = 34;
 
 const u8 = (number: number, value: number): FitEncoderField => ({
@@ -90,13 +97,20 @@ const sessionFields = (session: TestSession): FitEncoderField[] => {
 // offset, it also records the device's local time, as watches do.
 export const buildFitFile = (
   sessions: TestSession[],
-  options: { utcOffsetSeconds?: number } = {},
+  options: { utcOffsetSeconds?: number; records?: TestRecord[] } = {},
 ): ArrayBuffer => {
   const encoder = new FitEncoder().writeMessage(FILE_ID, [
     enumField(0, 4), // activity
     u16(1, 1), // Garmin
     time(4, START),
   ]);
+
+  for (const record of options.records ?? []) {
+    const fields = [time(253, record.timestamp)];
+    if (record.heartRate !== undefined) fields.push(u8(3, record.heartRate));
+    if (record.power !== undefined) fields.push(u16(7, record.power));
+    encoder.writeMessage(RECORD, fields);
+  }
 
   for (const session of sessions) {
     encoder.writeMessage(SESSION, sessionFields(session));
@@ -131,3 +145,14 @@ export const RUN: TestSession = {
   enhancedMinAltitude: 50,
   enhancedMaxAltitude: 170,
 };
+
+// One record a second for `seconds`, from `start`.
+export const steadyRecords = (
+  seconds: number,
+  sample: Omit<TestRecord, "timestamp">,
+  start: Date = START,
+): TestRecord[] =>
+  Array.from({ length: seconds + 1 }, (_, i) => ({
+    ...sample,
+    timestamp: new Date(start.getTime() + i * 1000),
+  }));

@@ -38,6 +38,7 @@ describe("ActivitySerializer", () => {
         frontMatterProperties: [],
         template: "# {{name}}",
       },
+      calories: { weightUnit: "kg" },
     };
 
     activitySerializer = new ActivitySerializer(app, settings);

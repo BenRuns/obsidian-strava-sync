@@ -1,4 +1,5 @@
 import { DEFAULT_TEMPLATE } from "./ActivityRenderer";
+import type { CalorieProfile, Sex } from "./Calories";
 
 export const VALID_FRONT_MATTER_PROPERTIES = [
   "id",
@@ -17,6 +18,9 @@ export const VALID_FRONT_MATTER_PROPERTIES = [
   "elev_low",
   "elev_high",
   "calories",
+  "estimated_calories",
+  "active_calories",
+  "calories_method",
   "icon",
   "url",
   "source",
@@ -51,6 +55,9 @@ export const DEFAULT_SETTINGS: Settings = {
       "icon",
     ],
     template: DEFAULT_TEMPLATE,
+  },
+  calories: {
+    weightUnit: "kg",
   },
 };
 
@@ -93,8 +100,87 @@ interface ActivitySettings {
   template: string;
 }
 
+export type WeightUnit = "kg" | "lb";
+
+// Your details, for estimating calories from heart rate or power.
+// Estimates are made only once sex, birth year and weight are all set.
+export interface CalorieSettings {
+  sex?: Sex;
+  birthYear?: number;
+  weight?: number;
+  weightUnit: WeightUnit;
+  // ml/kg/min, e.g. the VO2 max your watch shows
+  vo2max?: number;
+  // The calorie properties already added to the front matter, so each is
+  // only added once
+  addedProperties?: string[];
+  // Before active_calories: true once the first three were added
+  propertiesAdded?: boolean;
+}
+
 export interface Settings {
   authentication: AuthenticationSettings;
   sync: SyncSettings;
   activity: ActivitySettings;
+  calories: CalorieSettings;
 }
+
+const KG_PER_LB = 0.45359237;
+
+// The profile calorie estimates need, or undefined if it isn't complete.
+export const calorieProfile = ({
+  sex,
+  birthYear,
+  weight,
+  weightUnit,
+  vo2max,
+}: CalorieSettings): CalorieProfile | undefined => {
+  if (!sex || !birthYear || !weight || weight <= 0) {
+    return undefined;
+  }
+
+  return {
+    sex,
+    birthYear,
+    weightKg: weightUnit === "lb" ? weight * KG_PER_LB : weight,
+    vo2max: vo2max && vo2max > 0 ? vo2max : undefined,
+  };
+};
+
+export const CALORIE_PROPERTIES = [
+  "calories",
+  "estimated_calories",
+  "active_calories",
+  "calories_method",
+];
+
+// Once your calorie details are complete, adds the calorie properties to
+// the front matter, so estimates show without more setup. Each only once:
+// properties you remove afterwards stay removed. True if it changed them.
+export const addCalorieProperties = (settings: Settings): boolean => {
+  const { calories } = settings;
+  if (!calorieProfile(calories)) {
+    return false;
+  }
+
+  const added =
+    calories.addedProperties ??
+    (calories.propertiesAdded
+      ? ["calories", "estimated_calories", "calories_method"]
+      : []);
+  const toAdd = CALORIE_PROPERTIES.filter(
+    (property) => !added.includes(property),
+  );
+  if (toAdd.length === 0) {
+    return false;
+  }
+
+  const properties = settings.activity.frontMatterProperties;
+  settings.activity.frontMatterProperties = [
+    ...properties,
+    ...toAdd.filter((property) => !properties.includes(property)),
+  ];
+  calories.addedProperties = [...added, ...toAdd];
+  calories.propertiesAdded = undefined;
+  return true;
+};

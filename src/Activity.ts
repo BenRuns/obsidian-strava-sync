@@ -15,6 +15,12 @@ export interface Activity {
   elev_low: number;
   elev_high: number;
   calories: number;
+  // Calories estimated from heart rate or power and your profile (FIT and
+  // Garmin imports only); the part of them above resting burn; and how they
+  // were estimated: "heart_rate" or "power"
+  estimated_calories?: number;
+  active_calories?: number;
+  calories_method?: string;
   // Link to the activity online, if it has one
   url?: string;
   // Where it was imported from: "Strava", "Garmin" or "FIT"

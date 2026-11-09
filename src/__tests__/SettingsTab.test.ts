@@ -140,6 +140,10 @@ describe("SettingsTab", () => {
         ],
       },
       {
+        heading: "Calories",
+        items: ["Sex", "Birth year", "Weight", "VO2 max"],
+      },
+      {
         heading: "Activity",
         items: [
           "Properties / front matter",
@@ -459,6 +463,34 @@ describe("SettingsTab", () => {
       expect(settings.authentication.stravaClientSecret).toBe("shh");
       expect(plugin.saveSettings).toHaveBeenCalled();
     });
+  });
+
+  it("adds the calorie properties when the tab closes", () => {
+    settings.calories = {
+      ...settings.calories,
+      sex: "female",
+      birthYear: 1990,
+      weight: 60,
+    };
+
+    settingsTab.hide();
+
+    expect(settings.activity.frontMatterProperties).toContain(
+      "estimated_calories",
+    );
+    expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+
+    settingsTab.hide();
+    expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the properties alone on close without calorie details", () => {
+    settingsTab.hide();
+
+    expect(settings.activity.frontMatterProperties).not.toContain(
+      "estimated_calories",
+    );
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
   });
 
   it("shows Strava's Connect with Strava button", () => {
