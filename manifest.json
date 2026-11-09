@@ -1,7 +1,7 @@
 {
   "id": "physical-activity-importer",
   "name": "Physical Activity Importer",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "minAppVersion": "1.4.0",
   "description": "Import your workouts and activities as notes. Sync from Garmin Connect or Strava, or import FIT files from Garmin, COROS, Wahoo, Polar, Suunto and other devices.",
   "author": "Benjamin Patterson",
