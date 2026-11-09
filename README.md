@@ -151,6 +151,9 @@ The templating language used is [Handlebars.js](https://handlebarsjs.com/guide/)
 | `elev_low`            | 50.7                              | Lowest elevation in meters                 |
 | `elev_high`           | 60.2                              | Highest elevation in meters                |
 | `calories`            | 1234                              | Calories burned                            |
+| `estimated_calories`  | 1180                              | Calories estimated from heart rate or power ([see below](#calorie-estimates)) |
+| `active_calories`     | 1050                              | The part of `estimated_calories` above resting burn: what the activity added to your day |
+| `calories_method`     | "heart_rate", "power"             | How `estimated_calories` was worked out    |
 | `url`                 | "https://www.strava.com/activities/1218940553" | Link to the activity on Strava or Garmin Connect (none for FIT files) |
 | `source`              | "Strava", "Garmin", "FIT"         | Where the activity was imported from       |
 | `icon`                | 🚴‍♂️🏃🏊⛷️🏸🛶🏋️🚶🚵⛳🦽🥾<br>⛸️🛼🏄🏓🧘🧗🚣⛵🛹🏂⚽🎾 | Activity icon         |
@@ -199,6 +202,15 @@ FIT files don't have names, so activities are named the way Strava does, such as
 
 > [!NOTE]
 > The same activity imported from both Strava and Garmin (or a FIT file) will create two notes, because Strava's activity IDs differ from the start-time IDs used for FIT files and Garmin.
+
+### Calorie Estimates
+
+Device calorie figures are often well off: in validation studies, wrist devices' energy estimates are typically 20% or more out. For activities from Garmin or FIT files, the plugin can work out its own estimate from your second-by-second data and details:
+
+- **Rides with a power meter:** from the work done on the pedals, at a gross efficiency of 24% (roughly 1 kcal per kJ). This is the most accurate.
+- **Everything else with heart rate:** from [Keytel et al. (2005)](https://doi.org/10.1080/02640410470001730089)'s equations, using your sex, age and weight, plus VO2 max if you set it. Low heart rates never count for less than resting burn. A chest strap gives much better heart rate data than a wrist sensor.
+
+To turn estimates on, set your sex, birth year and weight (and optionally VO2 max) under "Calories" in settings. The plugin then adds `calories`, `estimated_calories`, `active_calories` and `calories_method` to the properties, each once: if you remove one, it stays removed. The device's own figure stays in `calories`, so you can compare them. `active_calories` takes off the resting burn (1 MET) over the activity's timer time, since a daily calorie goal already counts that; it's the number to eat back. Pauses aren't counted. Activities with heart rate or power for less than half their time get no estimate. Strava and Strava bulk export imports don't have second-by-second data, so they get no estimate.
 
 ### Importing a Strava Bulk Export
 

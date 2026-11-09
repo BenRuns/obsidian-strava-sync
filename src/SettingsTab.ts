@@ -12,7 +12,15 @@ import {
   type ActivitySource,
   DEFAULT_SETTINGS,
   VALID_FRONT_MATTER_PROPERTIES,
+  type WeightUnit,
+  addCalorieProperties,
 } from "./Settings";
+
+// A number typed into a setting, or undefined if it's blank or not positive.
+const positiveNumber = (value: string): number | undefined => {
+  const number = Number.parseFloat(value);
+  return Number.isFinite(number) && number > 0 ? number : undefined;
+};
 
 const LUXON_FORMAT_URL =
   "https://moment.github.io/luxon/#/formatting?id=table-of-tokens";
@@ -80,6 +88,15 @@ export class SettingsTab extends PluginSettingTab {
   // Older Obsidian: the same rows, built by hand.
   display(): void {
     this.renderRows();
+  }
+
+  // Adds the calorie properties when the tab closes, not while you're
+  // still typing your details in.
+  hide(): void {
+    super.hide();
+    if (addCalorieProperties(this.plugin.settings)) {
+      void this.plugin.saveSettings();
+    }
   }
 
   private renderRows(): void {
@@ -378,6 +395,85 @@ export class SettingsTab extends PluginSettingTab {
                   .setButtonText("Import FIT")
                   .onClick(() => void this.plugin.importActivitiesFromFIT()),
               ),
+          },
+        ],
+      },
+      {
+        heading: "Calories",
+        rows: [
+          {
+            name: "Sex",
+            desc: "Garmin and FIT imports can estimate calories from second-by-second heart rate (or power, for rides with a power meter) and your details here, often closer than the device's figure. Estimates are made once sex, birth year and weight are set, and calories, estimated_calories, active_calories (the part above resting burn) and calories_method are then added to the properties.",
+            render: (setting) =>
+              setting.addDropdown((dropdown) =>
+                dropdown
+                  .addOption("", "Not set")
+                  .addOption("male", "Male")
+                  .addOption("female", "Female")
+                  .setValue(settings.calories.sex ?? "")
+                  .onChange((value) => {
+                    settings.calories.sex =
+                      value === "male" || value === "female"
+                        ? value
+                        : undefined;
+                    save();
+                  }),
+              ),
+          },
+          {
+            name: "Birth year",
+            desc: "For your age at each activity.",
+            render: (setting) =>
+              setting.addText((text) => {
+                text
+                  .setPlaceholder("1990")
+                  .setValue(settings.calories.birthYear?.toString() ?? "")
+                  .onChange((value) => {
+                    settings.calories.birthYear = positiveNumber(value);
+                    save();
+                  });
+                text.inputEl.type = "number";
+              }),
+          },
+          {
+            name: "Weight",
+            render: (setting) =>
+              setting
+                .addText((text) => {
+                  text
+                    .setPlaceholder("70")
+                    .setValue(settings.calories.weight?.toString() ?? "")
+                    .onChange((value) => {
+                      settings.calories.weight = positiveNumber(value);
+                      save();
+                    });
+                  text.inputEl.type = "number";
+                })
+                .addDropdown((dropdown) =>
+                  dropdown
+                    .addOption("kg", "Kilograms")
+                    .addOption("lb", "Pounds")
+                    .setValue(settings.calories.weightUnit)
+                    .onChange((value) => {
+                      settings.calories.weightUnit = value as WeightUnit;
+                      save();
+                    }),
+                ),
+          },
+          {
+            name: "VO2 max",
+            desc: "Optional, in ml/kg/min, such as the estimate your watch shows. Makes heart rate estimates more accurate.",
+            render: (setting) =>
+              setting.addText((text) => {
+                text
+                  .setPlaceholder("Not set")
+                  .setValue(settings.calories.vo2max?.toString() ?? "")
+                  .onChange((value) => {
+                    settings.calories.vo2max = positiveNumber(value);
+                    save();
+                  });
+                text.inputEl.type = "number";
+              }),
           },
         ],
       },

@@ -89,6 +89,9 @@ export class PluginSettingTab {
   constructor(app: unknown) {
     this.app = app;
   }
+
+  // A method, not a jest.fn() field, so subclasses can override it.
+  hide() {}
 }
 
 // Text, text area and button components: keeps the value and handlers
