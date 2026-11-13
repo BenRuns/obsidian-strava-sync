@@ -131,4 +131,71 @@ describe("ActivityImporter", () => {
       expect(activities).toHaveLength(90);
     });
   });
+
+  it("imports laps from the detailed activity", async () => {
+    (mockStravaApi.listActivities as jest.Mock).mockResolvedValue([{ id: 1 }]);
+    (mockStravaApi.getActivity as jest.Mock).mockResolvedValue({
+      id: 1,
+      start_date: "2026-10-25T07:30:00Z",
+      name: "Track session",
+      sport_type: "Run",
+      elapsed_time: 900,
+      moving_time: 880,
+      distance: 3000,
+      laps: [
+        {
+          name: "Lap 1",
+          elapsed_time: 300,
+          moving_time: 295,
+          distance: 1000,
+          average_speed: 3.39,
+          max_speed: 4.2,
+          average_heartrate: 150.4,
+          max_heartrate: 165,
+          average_cadence: 88,
+          average_watts: 310,
+          total_elevation_gain: 2,
+        },
+        { name: "Lap 2", elapsed_time: 600, moving_time: 585, distance: 2000 },
+      ],
+    });
+
+    const [activity] = await activityImporter.importLatestActivities();
+
+    expect(activity.laps).toEqual([
+      {
+        number: 1,
+        name: "Lap 1",
+        elapsed_time: 300,
+        moving_time: 295,
+        distance: 1000,
+        average_speed: 3.39,
+        max_speed: 4.2,
+        average_heart_rate: 150.4,
+        max_heart_rate: 165,
+        average_cadence: 88,
+        average_power: 310,
+        total_elevation_gain: 2,
+      },
+      expect.objectContaining({ number: 2, name: "Lap 2", distance: 2000 }),
+    ]);
+  });
+
+  it("has no laps when Strava has none", async () => {
+    (mockStravaApi.listActivities as jest.Mock).mockResolvedValue([{ id: 1 }]);
+    (mockStravaApi.getActivity as jest.Mock).mockResolvedValue({
+      id: 1,
+      start_date: "2026-10-25T07:30:00Z",
+      name: "Run",
+      sport_type: "Run",
+      elapsed_time: 900,
+      moving_time: 880,
+      distance: 3000,
+      laps: [],
+    });
+
+    const [activity] = await activityImporter.importLatestActivities();
+
+    expect(activity.laps).toBeUndefined();
+  });
 });

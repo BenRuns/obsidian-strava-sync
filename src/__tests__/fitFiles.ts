@@ -25,6 +25,17 @@ export interface TestSession {
   enhancedMaxAltitude?: number; // m
 }
 
+export interface TestLap {
+  startTime: Date;
+  totalElapsedTime?: number; // s
+  totalTimerTime?: number; // s
+  totalDistance?: number; // m
+  avgSpeed?: number; // m/s
+  avgHeartRate?: number; // bpm
+  avgPower?: number; // W
+  intensity?: number; // 0 active, 1 rest, 2 warmup, 3 cooldown
+}
+
 export interface TestRecord {
   timestamp: Date;
   heartRate?: number; // bpm
@@ -34,6 +45,7 @@ export interface TestRecord {
 // FIT message and field numbers, sizes, types and scales from the FIT profile.
 const FILE_ID = 0;
 const SESSION = 18;
+const LAP = 19;
 const RECORD = 20;
 const ACTIVITY = 34;
 
@@ -93,11 +105,34 @@ const sessionFields = (session: TestSession): FitEncoderField[] => {
   return fields;
 };
 
+const lapFields = (lap: TestLap): FitEncoderField[] => {
+  const fields = [time(2, lap.startTime), time(253, lap.startTime)];
+  const add = (
+    value: number | undefined,
+    field: (v: number) => FitEncoderField,
+  ) => {
+    if (value !== undefined) fields.push(field(value));
+  };
+
+  add(lap.totalElapsedTime, (v) => u32(7, v * 1000));
+  add(lap.totalTimerTime, (v) => u32(8, v * 1000));
+  add(lap.totalDistance, (v) => u32(9, v * 100));
+  add(lap.avgSpeed, (v) => u16(13, Math.round(v * 1000)));
+  add(lap.avgHeartRate, (v) => u8(15, v));
+  add(lap.avgPower, (v) => u16(19, v));
+  add(lap.intensity, (v) => enumField(23, v));
+  return fields;
+};
+
 // Builds a FIT activity file in memory, one session per entry. With a UTC
 // offset, it also records the device's local time, as watches do.
 export const buildFitFile = (
   sessions: TestSession[],
-  options: { utcOffsetSeconds?: number; records?: TestRecord[] } = {},
+  options: {
+    utcOffsetSeconds?: number;
+    records?: TestRecord[];
+    laps?: TestLap[];
+  } = {},
 ): ArrayBuffer => {
   const encoder = new FitEncoder().writeMessage(FILE_ID, [
     enumField(0, 4), // activity
@@ -110,6 +145,10 @@ export const buildFitFile = (
     if (record.heartRate !== undefined) fields.push(u8(3, record.heartRate));
     if (record.power !== undefined) fields.push(u16(7, record.power));
     encoder.writeMessage(RECORD, fields);
+  }
+
+  for (const lap of options.laps ?? []) {
+    encoder.writeMessage(LAP, lapFields(lap));
   }
 
   for (const session of sessions) {

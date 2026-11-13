@@ -1,5 +1,20 @@
-import type { Activity } from "./Activity";
-import type { StravaActivity, StravaApi } from "./StravaApi";
+import type { Activity, Lap } from "./Activity";
+import type { StravaActivity, StravaApi, StravaLap } from "./StravaApi";
+
+const mapStravaLap = (lap: StravaLap, index: number): Lap => ({
+  number: index + 1,
+  name: lap.name,
+  elapsed_time: lap.elapsed_time,
+  moving_time: lap.moving_time,
+  distance: lap.distance,
+  average_speed: lap.average_speed || 0,
+  max_speed: lap.max_speed || 0,
+  average_heart_rate: lap.average_heartrate,
+  max_heart_rate: lap.max_heartrate,
+  average_cadence: lap.average_cadence,
+  average_power: lap.average_watts,
+  total_elevation_gain: lap.total_elevation_gain,
+});
 
 // The default “non-upload” rate limit allows 100 requests every 15 minutes, with up to 1,000 requests per day.
 export class ActivityImporter {
@@ -80,6 +95,9 @@ export class ActivityImporter {
       calories: stravaActivity.calories || 0,
       url: `https://www.strava.com/activities/${stravaActivity.id}`,
       source: "Strava",
+      ...(stravaActivity.laps?.length
+        ? { laps: stravaActivity.laps.map(mapStravaLap) }
+        : {}),
     };
   }
 }

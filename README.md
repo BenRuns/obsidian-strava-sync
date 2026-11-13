@@ -114,9 +114,21 @@ Description: {{description}}
 > [!NOTE] Private note
 > {{private_note}}
 {{/if}}
+{{#if laps.[1]}}
+
+## Laps
+
+| Lap | Type | Time | Distance | Pace | Avg HR | Avg power |
+| --- | --- | --- | --- | --- | --- | --- |
+{{#each laps}}
+| {{number}} | {{intensity}} | {{duration moving_time}} | {{km distance}} km | {{pace average_speed ../sport_type}} | {{average_heart_rate}} | {{average_power}} |
+{{/each}}
+{{/if}}
 
 #{{source}}
 ```
+
+If you haven't changed the content template, it's updated to this one automatically.
 
 This will produce a file similar to the following:
 
@@ -129,7 +141,17 @@ Description: This is a description
 
 > [!NOTE] Private note
 > This is a private note
+
+## Laps
+
+| Lap | Type | Time | Distance | Pace | Avg HR | Avg power |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | warmup | 10:00 | 1.80 km | 5:33 /km | 130 |  |
+| 2 | active | 4:00 | 1.00 km | 4:00 /km | 172 | 380 |
+| 3 | rest | 1:30 | 0.15 km | 10:00 /km | 141 |  |
 ```
+
+The laps table only appears when an activity has more than one lap.
 
 The templating language used is [Handlebars.js](https://handlebarsjs.com/guide/). The available fields are as follows (more info [here](https://developers.strava.com/docs/reference/#api-models-DetailedActivity)):
 
@@ -156,7 +178,37 @@ The templating language used is [Handlebars.js](https://handlebarsjs.com/guide/)
 | `calories_method`     | "heart_rate", "power"             | How `estimated_calories` was worked out    |
 | `url`                 | "https://www.strava.com/activities/1218940553" | Link to the activity on Strava or Garmin Connect (none for FIT files) |
 | `source`              | "Strava", "Garmin", "FIT"         | Where the activity was imported from       |
+| `laps`                | (a list, see below)               | Laps, or the intervals of a structured workout, in order |
 | `icon`                | 🚴‍♂️🏃🏊⛷️🏸🛶🏋️🚶🚵⛳🦽🥾<br>⛸️🛼🏄🏓🧘🧗🚣⛵🛹🏂⚽🎾 | Activity icon         |
+
+#### Laps and intervals
+
+Each lap in `laps` has these fields. Use them with `{{#each laps}}`; inside, `../` reaches the activity's fields, e.g. `{{../sport_type}}`.
+
+| Field                  | Example(s)                  | Description                                |
+|------------------------|-----------------------------|--------------------------------------------|
+| `number`               | 1, 2, 3                     | Lap number, from 1                         |
+| `name`                 | "Lap 1"                     | The lap's name (Strava only)               |
+| `intensity`            | "warmup", "active", "rest", "cooldown", "recovery", "interval" | What the lap was for, from structured workouts (FIT and Garmin only) |
+| `elapsed_time`         | 600                         | Elapsed time in seconds                    |
+| `moving_time`          | 590                         | Moving (timer) time in seconds             |
+| `distance`             | 1800                        | Distance in meters                         |
+| `average_speed`        | 3.05                        | Average speed in meters per second         |
+| `max_speed`            | 4.1                         | Maximum speed in meters per second         |
+| `average_heart_rate`   | 152                         | Average heart rate                         |
+| `max_heart_rate`       | 171                         | Maximum heart rate                         |
+| `average_cadence`      | 88                          | Average cadence                            |
+| `average_power`        | 380                         | Average power in watts                     |
+| `total_elevation_gain` | 12                          | Elevation gain in meters                   |
+| `calories`             | 95                          | Calories (FIT and Garmin only)             |
+
+Templates also have these helpers for formatting:
+
+| Helper                          | Example                                  |
+|---------------------------------|------------------------------------------|
+| `{{duration seconds}}`          | `{{duration moving_time}}` → "1:02:05"   |
+| `{{km meters}}`                 | `{{km distance}}` → "5.01"               |
+| `{{pace speed sport_type}}`     | "5:30 /km" for runs, walks and hikes, "1:45 /100m" for swims, "24.3 km/h" for everything else |
 
 #### Properties
 

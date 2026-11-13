@@ -1,8 +1,12 @@
-import type { Activity } from "../Activity";
+import type { Activity, Lap } from "../Activity";
 import {
   ActivityRenderer,
   DEFAULT_TEMPLATE,
   LEGACY_DEFAULT_TEMPLATE,
+  PREVIOUS_DEFAULT_TEMPLATE,
+  duration,
+  km,
+  pace,
 } from "../ActivityRenderer";
 
 jest.mock("obsidian", () => ({
@@ -284,6 +288,61 @@ Sport Type: Run
       const testActivity = { ...activity, sport_type };
       const result = renderer.render(testActivity);
       expect(result).toBe(`${expectedIcon} ${sport_type}`);
+    });
+  });
+
+  describe("laps", () => {
+    const lap = (number: number, extra: Partial<Lap> = {}): Lap => ({
+      number,
+      elapsed_time: 300,
+      moving_time: 290,
+      distance: 1000,
+      average_speed: 1000 / 290,
+      max_speed: 4.2,
+      ...extra,
+    });
+    const render = () =>
+      new ActivityRenderer(DEFAULT_TEMPLATE, "yyyy-MM-dd HH:mm:ss").render(
+        activity,
+      );
+
+    test("renders a table of laps", () => {
+      activity.laps = [
+        lap(1, { intensity: "warmup", average_heart_rate: 130 }),
+        lap(2, { intensity: "active", average_power: 380 }),
+      ];
+
+      expect(render()).toContain(`## Laps
+
+| Lap | Type | Time | Distance | Pace | Avg HR | Avg power |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | warmup | 4:50 | 1.00 km | 4:50 /km | 130 |  |
+| 2 | active | 4:50 | 1.00 km | 4:50 /km |  | 380 |
+
+#Strava`);
+    });
+
+    test("leaves out the table for a single lap, as before laps", () => {
+      const before = new ActivityRenderer(
+        PREVIOUS_DEFAULT_TEMPLATE,
+        "yyyy-MM-dd HH:mm:ss",
+      ).render(activity);
+      expect(render()).toBe(before);
+
+      activity.laps = [lap(1)];
+      expect(render()).toBe(before);
+    });
+
+    test("formats durations, distances and paces", () => {
+      expect(duration(3725)).toBe("1:02:05");
+      expect(duration(59.6)).toBe("1:00");
+      expect(duration(undefined)).toBe("");
+      expect(km(5012)).toBe("5.01");
+      expect(km(undefined)).toBe("");
+      expect(pace(1000 / 330, "Run")).toBe("5:30 /km");
+      expect(pace(100 / 105, "Swim")).toBe("1:45 /100m");
+      expect(pace(6.75, "Ride")).toBe("24.3 km/h");
+      expect(pace(0, "Run")).toBe("");
     });
   });
 });

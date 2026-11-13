@@ -2,7 +2,10 @@ import { Notice, Plugin, requireApiVersion } from "obsidian";
 import { ActivitiesCSVImporter, CSVImportError } from "./ActivitiesCSVImporter";
 import type { Activity } from "./Activity";
 import { ActivityImporter } from "./ActivityImporter";
-import { LEGACY_DEFAULT_TEMPLATE } from "./ActivityRenderer";
+import {
+  LEGACY_DEFAULT_TEMPLATE,
+  PREVIOUS_DEFAULT_TEMPLATE,
+} from "./ActivityRenderer";
 import { ActivitySerializer } from "./ActivitySerializer";
 import { FileSelector } from "./FileSelector";
 import { FitImporter } from "./FitImporter";
@@ -301,7 +304,10 @@ export default class PhysicalActivityImporter extends Plugin {
       calories: { ...DEFAULT_SETTINGS.calories, ...saved.calories },
     };
 
-    if (this.settings.activity.template === LEGACY_DEFAULT_TEMPLATE) {
+    if (
+      this.settings.activity.template === LEGACY_DEFAULT_TEMPLATE ||
+      this.settings.activity.template === PREVIOUS_DEFAULT_TEMPLATE
+    ) {
       this.settings.activity.template = DEFAULT_SETTINGS.activity.template;
     }
 

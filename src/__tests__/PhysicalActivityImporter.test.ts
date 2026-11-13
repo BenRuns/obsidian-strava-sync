@@ -9,7 +9,11 @@ import {
   requireApiVersion,
 } from "obsidian";
 import { ActivityImporter } from "../ActivityImporter";
-import { DEFAULT_TEMPLATE, LEGACY_DEFAULT_TEMPLATE } from "../ActivityRenderer";
+import {
+  DEFAULT_TEMPLATE,
+  LEGACY_DEFAULT_TEMPLATE,
+  PREVIOUS_DEFAULT_TEMPLATE,
+} from "../ActivityRenderer";
 import { GarminActivityImporter } from "../GarminActivityImporter";
 import { GarminApiError } from "../GarminApi";
 import PhysicalActivityImporter from "../PhysicalActivityImporter";
@@ -617,6 +621,16 @@ describe("PhysicalActivityImporter", () => {
     test("moves the old default template to the new one", async () => {
       (plugin.loadData as jest.Mock).mockResolvedValueOnce({
         activity: { template: LEGACY_DEFAULT_TEMPLATE },
+      });
+
+      await plugin.loadSettings();
+
+      expect(plugin.settings.activity.template).toBe(DEFAULT_TEMPLATE);
+    });
+
+    test("moves the default template from before laps to the new one", async () => {
+      (plugin.loadData as jest.Mock).mockResolvedValueOnce({
+        activity: { template: PREVIOUS_DEFAULT_TEMPLATE },
       });
 
       await plugin.loadSettings();
