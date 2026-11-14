@@ -27,19 +27,15 @@ export class GarminActivityImporter {
   private garminApi: GarminApi;
   private lastActivityTimestamp?: number;
   private profile?: CalorieProfile;
-  // TEMPORARY: sees each downloaded FIT file, for dumping it to the vault
-  private onDownload?: (activityId: number, data: ArrayBuffer) => Promise<void>;
 
   constructor(
     garminApi: GarminApi,
     lastActivityTimestamp?: number,
     profile?: CalorieProfile,
-    onDownload?: (activityId: number, data: ArrayBuffer) => Promise<void>,
   ) {
     this.garminApi = garminApi;
     this.lastActivityTimestamp = lastActivityTimestamp;
     this.profile = profile;
-    this.onDownload = onDownload;
   }
 
   async importLatestActivities(): Promise<FitImportResult> {
@@ -58,7 +54,6 @@ export class GarminActivityImporter {
       const name = `Garmin activity ${summary.activityId}`;
       try {
         const data = await this.garminApi.downloadActivity(summary.activityId);
-        await this.onDownload?.(summary.activityId, data);
         const { activities, errors } = await new FitImporter(
           [{ name, data }],
           this.profile,
