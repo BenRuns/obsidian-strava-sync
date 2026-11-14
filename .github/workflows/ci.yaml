@@ -4,6 +4,9 @@ on: [push, pull_request, workflow_dispatch]
 
 permissions:
   contents: write
+  # For artifact attestations of release builds
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -28,6 +31,16 @@ jobs:
         run: yarn test
       - name: 🔨 Build
         run: yarn build
+      # Lets users verify the release files were built here, from this repo:
+      # gh attestation verify main.js --repo BenRuns/physical-activity-importer
+      - name: 🔏 Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
       - name: 🚀 Create release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
