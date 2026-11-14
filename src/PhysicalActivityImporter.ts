@@ -1,3 +1,4 @@
+import FitParser from "fit-file-parser";
 import { Notice, Plugin, requireApiVersion } from "obsidian";
 import { ActivitiesCSVImporter, CSVImportError } from "./ActivitiesCSVImporter";
 import type { Activity } from "./Activity";
@@ -203,6 +204,29 @@ export default class PhysicalActivityImporter extends Plugin {
     );
   }
 
+  // TEMPORARY, for working out what Garmin's FIT files hold that the parser
+  // drops (e.g. workout step names). Saves each downloaded file to
+  // fit-dumps/, with everything the parser reads from it as JSON.
+  private async dumpFitFile(activityId: number, data: ArrayBuffer) {
+    const folder = "fit-dumps";
+    try {
+      if (!this.app.vault.getAbstractFileByPath(folder)) {
+        await this.app.vault.createFolder(folder);
+      }
+      const fitPath = `${folder}/${activityId}.fit`;
+      if (!this.app.vault.getAbstractFileByPath(fitPath)) {
+        await this.app.vault.createBinary(fitPath, data);
+      }
+      const jsonPath = `${folder}/${activityId}.json`;
+      if (!this.app.vault.getAbstractFileByPath(jsonPath)) {
+        const parsed = await new FitParser({ force: true }).parseAsync(data);
+        await this.app.vault.create(jsonPath, JSON.stringify(parsed, null, 2));
+      }
+    } catch (error) {
+      console.error(`Couldn't dump FIT file for ${activityId}:`, error);
+    }
+  }
+
   private async importNewGarminActivities(since?: number) {
     if (!this.garminApi.isAuthenticated()) {
       new Notice(
@@ -219,6 +243,7 @@ export default class PhysicalActivityImporter extends Plugin {
         this.garminApi,
         since ?? this.settings.sync.lastGarminActivityTimestamp,
         calorieProfile(this.settings.calories),
+        (activityId, data) => this.dumpFitFile(activityId, data),
       ).importLatestActivities();
       this.activities = activities;
 

@@ -310,6 +310,7 @@ describe("PhysicalActivityImporter", () => {
         plugin.garminApi,
         SINCE,
         undefined, // no calorie profile set
+        expect.any(Function), // TEMPORARY: FIT dump
       );
       expect(plugin.settings.sync.lastGarminActivityTimestamp).toBe(
         SINCE + 86400 * 60,
