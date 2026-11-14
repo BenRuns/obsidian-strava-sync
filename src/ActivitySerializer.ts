@@ -46,6 +46,7 @@ export class ActivitySerializer {
       this.settings.activity.template,
       this.settings.activity.contentDateFormat,
       this.settings.activity.frontMatterProperties,
+      this.settings.activity.distanceUnit,
     ).render(activity);
 
     try {

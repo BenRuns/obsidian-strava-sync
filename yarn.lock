@@ -2336,10 +2336,9 @@ find-up@^5.0.0:
     locate-path "^6.0.0"
     path-exists "^4.0.0"
 
-fit-file-parser@6.2.3:
-  version "6.2.3"
-  resolved "https://registry.yarnpkg.com/fit-file-parser/-/fit-file-parser-6.2.3.tgz#81d0b69bf0ebf56cfb1a26dcc3f1c388166f9309"
-  integrity sha512-Vl43P72udKT7Fvmwg18TwOyztK/GbN9kfKsO1FPKrc4tmFpY6oHHQkqtfg7vzYPZjz/a7Ok7wF6zCPJ39+TLgw==
+"fit-file-parser@github:BenRuns/fit-parser#4a82b83f2c3418e3f2afc1bac072104ad8162ee6":
+  version "6.2.8"
+  resolved "https://codeload.github.com/BenRuns/fit-parser/tar.gz/4a82b83f2c3418e3f2afc1bac072104ad8162ee6"
   dependencies:
     buffer "^6.0.3"
 

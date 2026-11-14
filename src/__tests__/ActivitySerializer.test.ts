@@ -35,6 +35,7 @@ describe("ActivitySerializer", () => {
       },
       activity: {
         contentDateFormat: "yyyy-MM-dd HH:mm:ss",
+        distanceUnit: "km",
         frontMatterProperties: [],
         template: "# {{name}}",
       },

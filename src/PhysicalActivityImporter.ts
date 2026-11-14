@@ -1,15 +1,12 @@
 import FitParser from "fit-file-parser";
-import { Notice, Plugin, requireApiVersion } from "obsidian";
+import { Notice, Plugin, TFile, requireApiVersion } from "obsidian";
 import { ActivitiesCSVImporter, CSVImportError } from "./ActivitiesCSVImporter";
 import type { Activity } from "./Activity";
 import { ActivityImporter } from "./ActivityImporter";
-import {
-  LEGACY_DEFAULT_TEMPLATE,
-  PREVIOUS_DEFAULT_TEMPLATE,
-} from "./ActivityRenderer";
+import { OLD_DEFAULT_TEMPLATES } from "./ActivityRenderer";
 import { ActivitySerializer } from "./ActivitySerializer";
 import { FileSelector } from "./FileSelector";
-import { FitImporter } from "./FitImporter";
+import { FitImporter, extractFitFiles } from "./FitImporter";
 import { GarminActivityImporter } from "./GarminActivityImporter";
 import { GarminApi, GarminApiError } from "./GarminApi";
 import { ReimportModal } from "./ReimportModal";
@@ -207,21 +204,34 @@ export default class PhysicalActivityImporter extends Plugin {
   // TEMPORARY, for working out what Garmin's FIT files hold that the parser
   // drops (e.g. workout step names). Saves each downloaded file to
   // fit-dumps/, with everything the parser reads from it as JSON.
-  private async dumpFitFile(activityId: number, data: ArrayBuffer) {
+  private async dumpFitFile(activityId: number, download: ArrayBuffer) {
     const folder = "fit-dumps";
+    const vault = this.app.vault;
+    const write = async (path: string, data: ArrayBuffer | string) => {
+      const file = vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) {
+        await (typeof data === "string"
+          ? vault.modify(file, data)
+          : vault.modifyBinary(file, data));
+      } else {
+        await (typeof data === "string"
+          ? vault.create(path, data)
+          : vault.createBinary(path, data));
+      }
+    };
+
     try {
-      if (!this.app.vault.getAbstractFileByPath(folder)) {
-        await this.app.vault.createFolder(folder);
+      if (!vault.getAbstractFileByPath(folder)) {
+        await vault.createFolder(folder);
       }
-      const fitPath = `${folder}/${activityId}.fit`;
-      if (!this.app.vault.getAbstractFileByPath(fitPath)) {
-        await this.app.vault.createBinary(fitPath, data);
-      }
-      const jsonPath = `${folder}/${activityId}.json`;
-      if (!this.app.vault.getAbstractFileByPath(jsonPath)) {
-        const parsed = await new FitParser({ force: true }).parseAsync(data);
-        await this.app.vault.create(jsonPath, JSON.stringify(parsed, null, 2));
-      }
+      // Garmin sends a zip holding the FIT file
+      const [{ data }] = extractFitFiles({ name: "", data: download });
+      await write(`${folder}/${activityId}.fit`, data);
+      const parsed = await new FitParser({ force: true }).parseAsync(data);
+      await write(
+        `${folder}/${activityId}.json`,
+        JSON.stringify(parsed, null, 2),
+      );
     } catch (error) {
       console.error(`Couldn't dump FIT file for ${activityId}:`, error);
     }
@@ -329,10 +339,7 @@ export default class PhysicalActivityImporter extends Plugin {
       calories: { ...DEFAULT_SETTINGS.calories, ...saved.calories },
     };
 
-    if (
-      this.settings.activity.template === LEGACY_DEFAULT_TEMPLATE ||
-      this.settings.activity.template === PREVIOUS_DEFAULT_TEMPLATE
-    ) {
+    if (OLD_DEFAULT_TEMPLATES.includes(this.settings.activity.template)) {
       this.settings.activity.template = DEFAULT_SETTINGS.activity.template;
     }
 

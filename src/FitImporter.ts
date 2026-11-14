@@ -10,6 +10,9 @@ import {
 export type FitSession = NonNullable<ParsedFit["sessions"]>[number];
 export type FitActivity = ParsedFit["activity"];
 export type FitLap = NonNullable<ParsedFit["laps"]>[number];
+export type FitWorkoutStep = NonNullable<
+  NonNullable<ParsedFit["messages"]>["workout_step"]
+>[number];
 
 export interface FitFile {
   name: string;
@@ -197,25 +200,69 @@ const duringSession = <T>(
 const optional = (value: unknown): number | undefined =>
   typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
-export const lapToLap = (lap: FitLap, index: number): Lap => ({
-  number: index + 1,
-  intensity: typeof lap.intensity === "string" ? lap.intensity : undefined,
-  elapsed_time: optional(lap.total_elapsed_time) ?? 0,
-  moving_time: optional(lap.total_timer_time) ?? 0,
-  distance: optional(lap.total_distance) ?? 0,
-  average_speed:
-    optional(lap.enhanced_avg_speed) ?? optional(lap.avg_speed) ?? 0,
-  max_speed: optional(lap.enhanced_max_speed) ?? optional(lap.max_speed) ?? 0,
-  average_heart_rate: optional(lap.avg_heart_rate),
-  max_heart_rate: optional(lap.max_heart_rate),
-  average_cadence: optional(lap.avg_cadence),
-  average_power: optional(lap.avg_power),
-  total_elevation_gain: optional(lap.total_ascent),
-  calories: optional(lap.total_calories),
-});
+// Message indexes come through as { value }, or as plain numbers.
+const indexValue = (index: unknown): number | undefined =>
+  typeof index === "number"
+    ? index
+    : optional((index as { value?: unknown } | undefined)?.value);
 
-const withLaps = (activity: Activity, laps: FitLap[]): Activity =>
-  laps.length > 0 ? { ...activity, laps: laps.map(lapToLap) } : activity;
+const text = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+// A structured workout's steps, by their index. Each lap names the step it
+// was recorded in.
+const workoutSteps = (fit: ParsedFit): Map<number, FitWorkoutStep> =>
+  new Map(
+    (fit.messages?.workout_step ?? []).map((step, position) => [
+      indexValue(step.message_index) ?? position,
+      step,
+    ]),
+  );
+
+export const lapToLap = (
+  lap: FitLap,
+  index: number,
+  steps: Map<number, FitWorkoutStep> = new Map(),
+): Lap => {
+  const stepIndex = indexValue(lap.wkt_step_index);
+  const step = stepIndex === undefined ? undefined : steps.get(stepIndex);
+  // Unnamed steps often say what they are in their notes, e.g. "Stride"
+  const notes = text(step?.notes);
+  const intensity = [lap.intensity, step?.intensity].find(
+    (value) => typeof value === "string",
+  );
+
+  return {
+    number: index + 1,
+    step: text(step?.wkt_step_name) ?? notes,
+    step_notes: notes,
+    intensity: intensity as string | undefined,
+    elapsed_time: optional(lap.total_elapsed_time) ?? 0,
+    moving_time: optional(lap.total_timer_time) ?? 0,
+    distance: optional(lap.total_distance) ?? 0,
+    average_speed:
+      optional(lap.enhanced_avg_speed) ?? optional(lap.avg_speed) ?? 0,
+    max_speed: optional(lap.enhanced_max_speed) ?? optional(lap.max_speed) ?? 0,
+    average_heart_rate: optional(lap.avg_heart_rate),
+    max_heart_rate: optional(lap.max_heart_rate),
+    average_cadence: optional(lap.avg_cadence),
+    average_power: optional(lap.avg_power),
+    total_elevation_gain: optional(lap.total_ascent),
+    calories: optional(lap.total_calories),
+  };
+};
+
+const withLaps = (
+  activity: Activity,
+  laps: FitLap[],
+  steps: Map<number, FitWorkoutStep>,
+): Activity =>
+  laps.length > 0
+    ? {
+        ...activity,
+        laps: laps.map((lap, index) => lapToLap(lap, index, steps)),
+      }
+    : activity;
 
 // Adds calories estimated from the session's heart rate or power, when
 // there's a profile to estimate with and enough data.
@@ -275,12 +322,17 @@ export const parseFitFile = async (
 
   const records = fit.records ?? [];
   const laps = fit.laps ?? [];
+  const steps = workoutSteps(fit);
+  const workoutName = text(fit.workout?.wkt_name);
   const onlySession = sessions.length === 1;
 
   return sessions.map((session) =>
     withEstimatedCalories(
       withLaps(
-        sessionToActivity(session, offsetSeconds),
+        {
+          ...sessionToActivity(session, offsetSeconds),
+          ...(workoutName ? { workout_name: workoutName } : {}),
+        },
         duringSession(
           session,
           laps,
@@ -288,6 +340,7 @@ export const parseFitFile = async (
           onlySession,
           false,
         ),
+        steps,
       ),
       session,
       duringSession(

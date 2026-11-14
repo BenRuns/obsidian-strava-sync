@@ -148,6 +148,7 @@ describe("SettingsTab", () => {
         items: [
           "Properties / front matter",
           "Activity date format",
+          "Distance units",
           "Activity template",
         ],
       },
@@ -404,6 +405,17 @@ describe("SettingsTab", () => {
         garmin: "Garmin",
       });
     });
+  });
+
+  it("saves the distance unit", () => {
+    const [dropdown] = renderRow("Distance units").components;
+
+    expect(dropdown.value).toBe("km");
+
+    dropdown.onChangeHandler?.("mi");
+
+    expect(settings.activity.distanceUnit).toBe("mi");
+    expect(plugin.saveSettings).toHaveBeenCalled();
   });
 
   describe.each([

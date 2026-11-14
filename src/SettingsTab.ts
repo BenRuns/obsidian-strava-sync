@@ -11,6 +11,7 @@ import type PhysicalActivityImporter from "./PhysicalActivityImporter";
 import {
   type ActivitySource,
   DEFAULT_SETTINGS,
+  type DistanceUnit,
   VALID_FRONT_MATTER_PROPERTIES,
   type WeightUnit,
   addCalorieProperties,
@@ -518,6 +519,21 @@ export class SettingsTab extends PluginSettingTab {
                   .setValue(settings.activity.contentDateFormat)
                   .onChange((value) => {
                     settings.activity.contentDateFormat = value;
+                    save();
+                  }),
+              ),
+          },
+          {
+            name: "Distance units",
+            desc: "For distances and paces in activity content, such as the laps table.",
+            render: (setting) =>
+              setting.addDropdown((dropdown) =>
+                dropdown
+                  .addOption("km", "Kilometres")
+                  .addOption("mi", "Miles")
+                  .setValue(settings.activity.distanceUnit)
+                  .onChange((value) => {
+                    settings.activity.distanceUnit = value as DistanceUnit;
                     save();
                   }),
               ),
