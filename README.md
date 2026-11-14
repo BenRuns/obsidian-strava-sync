@@ -114,9 +114,33 @@ Description: {{description}}
 > [!NOTE] Private note
 > {{private_note}}
 {{/if}}
+{{#if workout_name}}
+
+Workout: {{workout_name}}
+{{/if}}
+{{#if laps.[1]}}
+
+## Laps
+
+{{#if lap_types}}
+| Lap | Type | Time | Distance | Pace | Avg HR | Avg power |
+| --- | --- | --- | --- | --- | --- | --- |
+{{#each laps}}
+| {{number}} | {{type}} | {{duration moving_time}} | {{dist distance}} | {{pace average_speed ../sport_type}} | {{average_heart_rate}} | {{average_power}} |
+{{/each}}
+{{else}}
+| Lap | Time | Distance | Pace | Avg HR | Avg power |
+| --- | --- | --- | --- | --- | --- |
+{{#each laps}}
+| {{number}} | {{duration moving_time}} | {{dist distance}} | {{pace average_speed ../sport_type}} | {{average_heart_rate}} | {{average_power}} |
+{{/each}}
+{{/if}}
+{{/if}}
 
 #{{source}}
 ```
+
+If you haven't changed the content template, it's updated to this one automatically.
 
 This will produce a file similar to the following:
 
@@ -129,7 +153,19 @@ Description: This is a description
 
 > [!NOTE] Private note
 > This is a private note
+
+Workout: 2026-11-12 Tempo
+
+## Laps
+
+| Lap | Type | Time | Distance | Pace | Avg HR | Avg power |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Warm up (1.5 mi E) | 9:38 | 1.61 km | 5:59 /km | 119 |  |
+| 2 | Threshold (3 mi @ T pace) | 7:40 | 1.61 km | 4:46 /km | 154 |  |
+| 3 | Cool down (1 mi E) | 10:41 | 1.61 km | 6:39 /km | 142 |  |
 ```
+
+The laps table only appears when an activity has more than one lap. For a structured workout from a Garmin (or other FIT) device, the Type column shows each lap's workout step, with the step's notes. The column is left out when laps have no types, as for an ordinary run with auto laps.
 
 The templating language used is [Handlebars.js](https://handlebarsjs.com/guide/). The available fields are as follows (more info [here](https://developers.strava.com/docs/reference/#api-models-DetailedActivity)):
 
@@ -156,7 +192,44 @@ The templating language used is [Handlebars.js](https://handlebarsjs.com/guide/)
 | `calories_method`     | "heart_rate", "power"             | How `estimated_calories` was worked out    |
 | `url`                 | "https://www.strava.com/activities/1218940553" | Link to the activity on Strava or Garmin Connect (none for FIT files) |
 | `source`              | "Strava", "Garmin", "FIT"         | Where the activity was imported from       |
+| `laps`                | (a list, see below)               | Laps, or the intervals of a structured workout, in order |
+| `workout_name`        | "2026-11-12 Tempo"                | The structured workout the activity followed (FIT and Garmin only) |
 | `icon`                | 🚴‍♂️🏃🏊⛷️🏸🛶🏋️🚶🚵⛳🦽🥾<br>⛸️🛼🏄🏓🧘🧗🚣⛵🛹🏂⚽🎾 | Activity icon         |
+
+#### Laps and intervals
+
+Each lap in `laps` has these fields. Use them with `{{#each laps}}`; inside, `../` reaches the activity's fields, e.g. `{{../sport_type}}`. `{{#if lap_types}}` is true when any lap has a type worth showing.
+
+| Field                  | Example(s)                  | Description                                |
+|------------------------|-----------------------------|--------------------------------------------|
+| `number`               | 1, 2, 3                     | Lap number, from 1                         |
+| `name`                 | "Lap 1"                     | The lap's name (Strava only)               |
+| `step`                 | "Warm up", "Threshold"      | The structured workout step the lap was recorded in, or the step's notes if it has no name (FIT and Garmin only) |
+| `step_notes`           | "3 mi @ T pace"             | The workout step's notes (FIT and Garmin only) |
+| `intensity`            | "warmup", "active", "rest", "cooldown", "recovery", "interval" | What the lap was for, from the lap or its workout step (FIT and Garmin only) |
+| `type`                 | "Threshold (3 mi @ T pace)", "Recovery" | What the Type column shows: the step and its notes, or else the intensity |
+| `elapsed_time`         | 600                         | Elapsed time in seconds                    |
+| `moving_time`          | 590                         | Moving (timer) time in seconds             |
+| `distance`             | 1800                        | Distance in meters                         |
+| `average_speed`        | 3.05                        | Average speed in meters per second         |
+| `max_speed`            | 4.1                         | Maximum speed in meters per second         |
+| `average_heart_rate`   | 152                         | Average heart rate                         |
+| `max_heart_rate`       | 171                         | Maximum heart rate                         |
+| `average_cadence`      | 88                          | Average cadence                            |
+| `average_power`        | 380                         | Average power in watts                     |
+| `total_elevation_gain` | 12                          | Elevation gain in meters                   |
+| `calories`             | 95                          | Calories (FIT and Garmin only)             |
+
+Templates also have these helpers for formatting:
+
+| Helper                          | Example                                  |
+|---------------------------------|------------------------------------------|
+| `{{duration seconds}}`          | `{{duration moving_time}}` → "1:02:05"   |
+| `{{dist meters}}`               | `{{dist distance}}` → "5.01 km", or "3.11 mi" with miles set |
+| `{{km meters}}`                 | `{{km distance}}` → "5.01"               |
+| `{{pace speed sport_type}}`     | "5:30 /km" for runs, walks and hikes, "1:45 /100m" for swims, "24.3 km/h" for everything else; with miles set, "8:51 /mi", "1:36 /100yd" and "15.1 mph" |
+
+`{{dist}}` and `{{pace}}` follow the "Distance units" setting: kilometres or miles.
 
 #### Properties
 

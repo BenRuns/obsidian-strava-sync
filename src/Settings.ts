@@ -21,6 +21,7 @@ export const VALID_FRONT_MATTER_PROPERTIES = [
   "estimated_calories",
   "active_calories",
   "calories_method",
+  "workout_name",
   "icon",
   "url",
   "source",
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   activity: {
     contentDateFormat: "yyyy-MM-dd HH:mm:ss",
+    distanceUnit: "km",
     frontMatterProperties: [
       "name",
       "start_date",
@@ -94,8 +96,12 @@ interface SyncSettings {
   lastGarminActivityTimestamp?: number;
 }
 
+// Distances and paces in note content: kilometres or miles
+export type DistanceUnit = "km" | "mi";
+
 interface ActivitySettings {
   contentDateFormat: string;
+  distanceUnit: DistanceUnit;
   frontMatterProperties: string[];
   template: string;
 }

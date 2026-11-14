@@ -155,6 +155,136 @@ describe("FitImporter", () => {
     ).toBe("Morning Mountain Bike Ride");
   });
 
+  describe("laps", () => {
+    const at = (seconds: number) => new Date(START.getTime() + seconds * 1000);
+
+    it("imports laps and workout intervals", async () => {
+      const [activity] = await parseFitFile(
+        buildFitFile([RUN], {
+          laps: [
+            {
+              startTime: START,
+              totalElapsedTime: 600,
+              totalTimerTime: 600,
+              totalDistance: 1800,
+              avgSpeed: 3,
+              avgHeartRate: 130,
+              intensity: 2,
+            },
+            {
+              startTime: at(600),
+              totalElapsedTime: 240,
+              totalTimerTime: 240,
+              totalDistance: 1000,
+              avgSpeed: 4.167,
+              avgHeartRate: 172,
+              avgPower: 380,
+              intensity: 0,
+            },
+            {
+              startTime: at(840),
+              totalElapsedTime: 90,
+              totalTimerTime: 90,
+              totalDistance: 150,
+              intensity: 1,
+            },
+          ],
+        }),
+      );
+
+      expect(activity.laps).toHaveLength(3);
+      expect(activity.laps?.[0]).toMatchObject({
+        number: 1,
+        intensity: "warmup",
+        elapsed_time: 600,
+        moving_time: 600,
+        distance: 1800,
+        average_speed: 3,
+        average_heart_rate: 130,
+      });
+      expect(activity.laps?.[1]).toMatchObject({
+        number: 2,
+        intensity: "active",
+        average_power: 380,
+      });
+      expect(activity.laps?.[2]).toMatchObject({
+        number: 3,
+        intensity: "rest",
+        distance: 150,
+      });
+    });
+
+    it("gives each leg of a multisport file its own laps", async () => {
+      const activities = await parseFitFile(
+        buildFitFile(
+          [
+            { startTime: START, sport: "swimming", totalElapsedTime: 1800 },
+            { startTime: at(1800), sport: "cycling", totalElapsedTime: 3600 },
+          ],
+          {
+            laps: [
+              { startTime: START, totalDistance: 750 },
+              { startTime: at(900), totalDistance: 750 },
+              { startTime: at(1800), totalDistance: 40000 },
+            ],
+          },
+        ),
+      );
+
+      expect(activities[0].laps?.map((lap) => lap.distance)).toEqual([
+        750, 750,
+      ]);
+      expect(activities[1].laps).toEqual([
+        expect.objectContaining({ number: 1, distance: 40000 }),
+      ]);
+    });
+
+    it("names laps after their workout steps", async () => {
+      const [activity] = await parseFitFile(
+        buildFitFile([RUN], {
+          workout: {
+            name: "2026-11-12 Tempo",
+            steps: [
+              { name: "Warm up", notes: "1.5 mi E", intensity: 2 },
+              { name: "Threshold", notes: "3 mi @ T pace", intensity: 0 },
+              { notes: "Stride", intensity: 0 },
+              { intensity: 4 },
+            ],
+          },
+          laps: [
+            { startTime: START, workoutStepIndex: 0 },
+            { startTime: at(600), workoutStepIndex: 1 },
+            { startTime: at(1200), workoutStepIndex: 2 },
+            { startTime: at(1220), workoutStepIndex: 3 },
+            // After the workout ended
+            { startTime: at(1240), workoutStepIndex: 65535 },
+          ],
+        }),
+      );
+
+      expect(activity.workout_name).toBe("2026-11-12 Tempo");
+      expect(
+        activity.laps?.map(({ step, step_notes, intensity }) => ({
+          step,
+          step_notes,
+          intensity,
+        })),
+      ).toEqual([
+        { step: "Warm up", step_notes: "1.5 mi E", intensity: "warmup" },
+        { step: "Threshold", step_notes: "3 mi @ T pace", intensity: "active" },
+        { step: "Stride", step_notes: "Stride", intensity: "active" },
+        { step: undefined, step_notes: undefined, intensity: "recovery" },
+        { step: undefined, step_notes: undefined, intensity: undefined },
+      ]);
+    });
+
+    it("has no laps when the file has none", async () => {
+      const [activity] = await parseFitFile(buildFitFile([RUN]));
+      expect(activity.laps).toBeUndefined();
+      expect(activity.workout_name).toBeUndefined();
+    });
+  });
+
   describe("zip files", () => {
     const zip = (files: Record<string, ArrayBuffer | string>) => {
       const bytes = zipSync(

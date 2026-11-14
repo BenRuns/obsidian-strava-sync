@@ -7,6 +7,21 @@ interface StravaTokenResponse {
   expires_at: number;
 }
 
+export interface StravaLap {
+  name?: string;
+  lap_index?: number;
+  elapsed_time: number;
+  moving_time: number;
+  distance: number;
+  average_speed?: number;
+  max_speed?: number;
+  average_heartrate?: number;
+  max_heartrate?: number;
+  average_cadence?: number;
+  average_watts?: number;
+  total_elevation_gain?: number;
+}
+
 export interface StravaActivity {
   id: number;
   start_date: string;
@@ -24,6 +39,8 @@ export interface StravaActivity {
   elev_low?: number;
   elev_high?: number;
   calories?: number;
+  // Only in the detailed activity
+  laps?: StravaLap[];
 }
 
 export class StravaApi {
