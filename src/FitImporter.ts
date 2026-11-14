@@ -228,15 +228,19 @@ export const lapToLap = (
   const step = stepIndex === undefined ? undefined : steps.get(stepIndex);
   // Unnamed steps often say what they are in their notes, e.g. "Stride"
   const notes = text(step?.notes);
-  const intensity = [lap.intensity, step?.intensity].find(
-    (value) => typeof value === "string",
-  );
+  // Unknown intensities come through as numbers
+  const intensity =
+    typeof lap.intensity === "string"
+      ? lap.intensity
+      : typeof step?.intensity === "string"
+        ? step.intensity
+        : undefined;
 
   return {
     number: index + 1,
     step: text(step?.wkt_step_name) ?? notes,
     step_notes: notes,
-    intensity: intensity as string | undefined,
+    intensity,
     elapsed_time: optional(lap.total_elapsed_time) ?? 0,
     moving_time: optional(lap.total_timer_time) ?? 0,
     distance: optional(lap.total_distance) ?? 0,
