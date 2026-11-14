@@ -50,7 +50,7 @@
     "@types/handlebars": "^4.1.0",
     "csv-parse": "^5.5.6",
     "fflate": "0.8.2",
-    "fit-file-parser": "github:BenRuns/fit-parser#4a82b83f2c3418e3f2afc1bac072104ad8162ee6",
+    "fit-file-parser": "6.2.9",
     "handlebars": "^4.7.8",
     "luxon": "^3.5.0"
   },
